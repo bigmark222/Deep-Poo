@@ -85,6 +85,14 @@ pub fn spawn_probe(
             entity.insert(CapsuleProbe);
         }
 
+        // Front four segments (including tip) get their own collision group to be ignored by balloon shell.
+        let groups = if i < 4 {
+            CollisionGroups::new(Group::GROUP_3, Group::ALL)
+        } else {
+            CollisionGroups::new(Group::GROUP_1, Group::ALL)
+        };
+        entity.insert(groups);
+
         segments.push(entity.id());
     }
 

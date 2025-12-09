@@ -38,14 +38,14 @@ pub fn balloon_control_input(
     mut balloon: ResMut<BalloonControl>,
     tip_q: Query<&GlobalTransform, With<ProbeHead>>,
 ) {
-    let Ok(tip_tf) = tip_q.single() else {
-        return;
-    };
-    let tip_z = tip_tf.translation().z;
     let forward = Vec3::Z;
 
     if !balloon.initialized {
-        balloon.position = Vec3::new(0.0, 0.0, tip_z + 2.0);
+        if let Ok(tip_tf) = tip_q.single() {
+            balloon.position = Vec3::new(0.0, 0.0, tip_tf.translation().z + 5.0);
+        } else {
+            balloon.position = Vec3::new(0.0, 0.0, 2.0);
+        }
         balloon.initialized = true;
     }
 
@@ -61,9 +61,10 @@ pub fn balloon_control_input(
         balloon.position -= forward * step;
     }
 
-    let dist = balloon.position.z - tip_z;
-    let clamped = dist.clamp(0.0, balloon.max_offset);
-    balloon.position = Vec3::new(0.0, 0.0, tip_z + clamped);
+    balloon.position.z = balloon
+        .position
+        .z
+        .clamp(-50.0, 200.0);
 }
 
 #[derive(Component)]
@@ -114,6 +115,8 @@ pub fn balloon_marker_update(
 
 #[derive(Component)]
 pub struct BalloonBody;
+#[derive(Component)]
+pub struct BalloonWall;
 
 pub fn spawn_balloon_body(mut commands: Commands) {
     commands.spawn((
@@ -122,19 +125,34 @@ pub fn spawn_balloon_body(mut commands: Commands) {
         GlobalTransform::default(),
         RigidBody::KinematicPositionBased,
         Collider::capsule_z(0.5, 0.3),
-        CollisionGroups::default(),
+        Sensor,
+        CollisionGroups::new(Group::GROUP_2, Group::ALL ^ (Group::GROUP_1 | Group::GROUP_3)),
+    ));
+
+    commands.spawn((
+        BalloonWall,
+        Transform::default(),
+        GlobalTransform::default(),
+        RigidBody::KinematicPositionBased,
+        Collider::ball(0.4),
+        CollisionGroups::new(Group::GROUP_4, Group::GROUP_3),
     ));
 }
 
 pub fn balloon_body_update(
     balloon: Res<BalloonControl>,
-    mut body_q: Query<(&mut Transform, &mut Collider), With<BalloonBody>>,
+    mut parts: ParamSet<(
+        Query<(&mut Transform, &mut Collider), With<BalloonBody>>,
+        Query<&mut Transform, With<BalloonWall>>,
+    )>,
 ) {
+    let mut body_q = parts.p0();
     let Ok((mut tf, mut collider)) = body_q.single_mut() else {
         return;
     };
 
-    tf.translation = balloon.position;
+    // Shift collider backward so its front tip aligns near the visual marker at balloon.position.
+    tf.translation = balloon.position - Vec3::new(0.0, 0.0, balloon.half_length);
     tf.rotation = Quat::IDENTITY;
 
     let radius = if balloon.inflated {
@@ -143,4 +161,12 @@ pub fn balloon_body_update(
         balloon.deflated_radius
     };
     *collider = Collider::capsule_z(balloon.half_length, radius);
+
+    let mut wall_q = parts.p1();
+    if let Ok(mut wall_tf) = wall_q.single_mut() {
+        // Place stop further ahead of the balloon tip to align with the expanded tunnel bulge.
+        let front_offset = balloon.half_length * 5.0;
+        wall_tf.translation = balloon.position + Vec3::new(0.0, 0.0, front_offset);
+        wall_tf.rotation = Quat::IDENTITY;
+    }
 }
