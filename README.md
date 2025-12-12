@@ -1,12 +1,18 @@
 # Mission Impossibowel
 
-![demo](media/deployable_ballooning.gif)
+This is a simplified demonstration of United States patent: [Pub. No.: US 2007/024.9906 A1](https://patentimages.storage.googleapis.com/6b/ce/a2/051225b0d2ff0a/US20070249906A1.pdf)
 
-Simple Bevy + Rapier sandbox with a capsule “probe” navigating a snug tunnel. Arrow keys (Up/Down) or `I/K` apply thrust; right mouse + WASD/space/shift moves the fly camera. A small gravity keeps the probe settled.
+*you can legally **demonstrate or prototype** patented technologies in a **non-commercial, research or educational context**, including within a physics engine like Bevy + Rapier, as long as you don’t monetize, distribute, or sell the resulting product.*
+
+![demo](media/Endotics_Probe_Demo1.gif)
+
+Simple Bevy + Rapier sandbox with a soft, pneumatic “probe” navigating a snug tunnel. 
 
 ## Controls
-- Arrow Up / `I`: thrust forward (along +Z).
-- Arrow Down / `K`: thrust backward.
+- Tail balloon on/off: `N` (anchors rear, collapses tunnel at tail)
+- Head balloon on/off: `B` (anchors front, collapses tunnel at nose)
+- Extend (pneumatic): hold Arrow Up / `I` while tail balloon is on and head balloon is off. Slow, capped at ~172% length.
+- Retract/deflate: hold Arrow Down / `K` (works in any anchor state; with head balloon on, the rear slides forward).
 - Right Mouse + Move: look around.
 - W/A/S/D: strafe camera; Space/Shift: move camera up/down.
 
@@ -17,5 +23,6 @@ cargo run --release
 ```
 
 ## Notes
-- Physics: Rapier 3D with gentle gravity and high friction for a tight fit.
-- Assets: currently uses a generated capsule mesh (no GLB import (yet)).
+- Physics: Rapier 3D with gentle gravity and friction that ramps up where the tunnel is collapsed.
+- Probe: elastic tube, stretch limited to ~172% of deflated length; tail/front anchoring via balloons.
+- Tunnel: long, ring-based shell with localized contraction around balloons.

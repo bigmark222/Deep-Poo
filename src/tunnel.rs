@@ -60,7 +60,7 @@ pub fn setup_tunnel(
         half_height,
     }));
 
-    let base_color = Color::srgba(0.7, 0.4, 0.4, 0.25);
+    let base_color = Color::srgba(0.25, 0.22, 0.18, 0.28);
     let mat = materials.add(StandardMaterial {
         base_color,
         alpha_mode: AlphaMode::Blend,
@@ -140,8 +140,8 @@ pub fn tunnel_expansion_system(
     let soft_contract_radius = 2.4;
     let contract_speed = 6.5;
 
-    let base_color = Color::srgba(0.7, 0.4, 0.4, 0.25);
-    let balloon_color = Color::srgba(0.55, 1.0, 0.55, 0.5);
+    let base_color = Color::srgba(0.25, 0.22, 0.18, 0.28);
+    let balloon_color = Color::srgba(1.0, 0.85, 0.35, 0.6);
     let relaxed_friction = 1.2;
     let contracted_friction = 1.8;
 

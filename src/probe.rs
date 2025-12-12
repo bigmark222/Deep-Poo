@@ -90,7 +90,14 @@ pub fn spawn_probe(
         radius: base_radius * 0.9,
         half_height: base_length * 0.5,
     }));
-    let material_handle = materials.add(Color::srgb(0.8, 0.2, 0.2));
+    let material_handle = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.1, 0.6, 1.0),
+        emissive: Color::srgb(0.05, 0.3, 0.8).into(),
+        perceptual_roughness: 0.15,
+        metallic: 0.1,
+        unlit: true,
+        ..default()
+    });
 
     let mut root = commands.spawn((
         ProbeBody {
