@@ -4,7 +4,7 @@ This is a simplified demonstration of United States patent: [Pub. No.: US 2007/0
 
 *you can legally **demonstrate or prototype** patented technologies in a **non-commercial, research or educational context**, including within a physics engine like Bevy + Rapier, as long as you don’t monetize, distribute, or sell the resulting product.*
 
-![demo](media/Endotics_Probe_Demo1.gif)
+![demo](media/Endotics_Probe_Demo2.gif)
 
 Simple Bevy + Rapier sandbox with a soft, pneumatic “probe” navigating a snug tunnel. 
 
