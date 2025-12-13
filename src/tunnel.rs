@@ -9,7 +9,7 @@ use crate::balloon_control::BalloonControl;
 
 pub const TUNNEL_START_Z: f32 = -20.0;
 pub const TUNNEL_LENGTH: f32 = 108.0;
-pub const TUNNEL_BEND_AMPLITUDE: f32 = 7.0;
+pub const TUNNEL_BEND_AMPLITUDE: f32 = 10.0;
 
 #[derive(Component)]
 pub struct TunnelRing {
@@ -31,9 +31,20 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 pub fn tunnel_centerline(z: f32) -> (Vec3, Vec3) {
     let progress = ((z - TUNNEL_START_Z) / TUNNEL_LENGTH).clamp(0.0, 1.0);
     let phase = progress * std::f32::consts::PI;
-    let x = TUNNEL_BEND_AMPLITUDE * phase.sin();
+    // Sharper blend: base S plus stronger 2nd/3rd harmonics, scaled up later in the tunnel.
+    // Early gentle, later much sharper with quadratic ramp.
+    let amp_scale = 1.0 + 5.0 * progress * progress;
+    let x_base = TUNNEL_BEND_AMPLITUDE * phase.sin()
+        + (TUNNEL_BEND_AMPLITUDE * 0.65) * (2.0 * phase).sin()
+        + (TUNNEL_BEND_AMPLITUDE * 0.25) * (3.0 * phase).sin();
+    let x = amp_scale * x_base;
     let dx_dz = if TUNNEL_LENGTH > 0.0 {
-        TUNNEL_BEND_AMPLITUDE * std::f32::consts::PI / TUNNEL_LENGTH * phase.cos()
+        let dphase_dz = std::f32::consts::PI / TUNNEL_LENGTH;
+        let dx_base_dz = TUNNEL_BEND_AMPLITUDE * dphase_dz * phase.cos()
+            + (TUNNEL_BEND_AMPLITUDE * 0.65) * 2.0 * dphase_dz * (2.0 * phase).cos()
+            + (TUNNEL_BEND_AMPLITUDE * 0.25) * 3.0 * dphase_dz * (3.0 * phase).cos();
+        let damp_dz = (10.0 * progress) / TUNNEL_LENGTH;
+        amp_scale * dx_base_dz + damp_dz * x_base
     } else {
         0.0
     };
@@ -53,8 +64,17 @@ pub fn advance_centerline(z_start: f32, arc_distance: f32) -> (Vec3, Vec3, f32) 
         steps += 1;
         let progress = ((z - TUNNEL_START_Z) / TUNNEL_LENGTH).clamp(0.0, 1.0);
         let phase = progress * std::f32::consts::PI;
+        let amp_scale = 1.0 + 5.0 * progress * progress;
         let dx_dz = if TUNNEL_LENGTH > 0.0 {
-            TUNNEL_BEND_AMPLITUDE * std::f32::consts::PI / TUNNEL_LENGTH * phase.cos()
+            let dphase_dz = std::f32::consts::PI / TUNNEL_LENGTH;
+            let x_base = TUNNEL_BEND_AMPLITUDE * phase.sin()
+                + (TUNNEL_BEND_AMPLITUDE * 0.65) * (2.0 * phase).sin()
+                + (TUNNEL_BEND_AMPLITUDE * 0.25) * (3.0 * phase).sin();
+            let dx_base_dz = TUNNEL_BEND_AMPLITUDE * dphase_dz * phase.cos()
+                + (TUNNEL_BEND_AMPLITUDE * 0.65) * 2.0 * dphase_dz * (2.0 * phase).cos()
+                + (TUNNEL_BEND_AMPLITUDE * 0.25) * 3.0 * dphase_dz * (3.0 * phase).cos();
+            let damp_dz = (10.0 * progress) / TUNNEL_LENGTH;
+            amp_scale * dx_base_dz + damp_dz * x_base
         } else {
             0.0
         };
