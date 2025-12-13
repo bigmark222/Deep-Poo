@@ -2,6 +2,7 @@ pub mod camera;
 pub mod balloon_control;
 pub mod controls;
 pub mod hud;
+pub mod autopilot;
 pub mod polyp;
 pub mod probe;
 pub mod tunnel;
@@ -13,6 +14,7 @@ use balloon_control::{
     balloon_body_update, balloon_control_input, balloon_marker_update, spawn_balloon_body,
     spawn_balloon_marker, BalloonControl,
 };
+use autopilot::{auto_inchworm, auto_toggle, AutoDrive};
 use camera::{camera_controller, setup_camera};
 use controls::{control_inputs_and_apply, ControlParams};
 use hud::{spawn_controls_ui, update_controls_ui};
@@ -32,6 +34,7 @@ pub fn run_app() {
         .insert_resource(TipSense::default())
         .insert_resource(PolypTelemetry::default())
         .insert_resource(PolypRemoval::default())
+        .insert_resource(AutoDrive::default())
         .insert_resource(ControlParams {
             tension: 0.5,
             stiffness: 500.0,
@@ -65,6 +68,8 @@ pub fn run_app() {
                 balloon_control_input,
                 balloon_body_update,
                 balloon_marker_update,
+                auto_toggle,
+                auto_inchworm,
                 camera_controller,
                 control_inputs_and_apply,
                 update_controls_ui,

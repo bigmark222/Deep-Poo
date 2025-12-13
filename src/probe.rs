@@ -6,12 +6,13 @@ use std::f32::consts::FRAC_PI_2;
 
 use crate::controls::ControlParams;
 use crate::balloon_control::BalloonControl;
-use crate::polyp::PolypRemoval;
+use crate::autopilot::AutoDrive;
+use crate::polyp::{PolypRemoval, PolypTelemetry};
 use crate::tunnel::{advance_centerline, tunnel_centerline, tunnel_tangent_rotation};
 
-const MIN_STRETCH: f32 = 1.0;
+pub const MIN_STRETCH: f32 = 1.0;
 // Allow stretching up to +68% of the deflated length.
-const MAX_STRETCH: f32 = 1.68;
+pub const MAX_STRETCH: f32 = 1.68;
 const STRETCH_RATE: f32 = 0.2; // slowed to ~1/3 speed
 const RETRACT_RATE: f32 = 0.3;
 
@@ -213,6 +214,8 @@ pub fn peristaltic_drive(
     balloon: Res<BalloonControl>,
     rapier: ReadRapierContext<'_, '_>,
     removal: Res<PolypRemoval>,
+    polyp: Res<PolypTelemetry>,
+    auto: Res<AutoDrive>,
     mut sense: ResMut<TipSense>,
     mut stretch: ResMut<StretchState>,
     mut tail_body: Query<(&ProbeBody, Entity, &mut RigidBody, &mut ProbeParam), With<CapsuleProbe>>,
@@ -258,9 +261,19 @@ pub fn peristaltic_drive(
     // Pause manual length changes while removing a polyp.
     let autopause = removal.in_progress;
 
-    if extend_command && !autopause {
-        stretch.factor = (stretch.factor + STRETCH_RATE * dt).min(MAX_STRETCH);
-    } else if retract_command && !autopause {
+    // Slow extend as we approach a detected polyp to avoid overshooting.
+    let slow_factor = if auto.enabled && polyp.detected {
+        polyp
+            .nearest_distance
+            .map(|d| (d / 3.5).clamp(0.2, 1.0))
+            .unwrap_or(0.5)
+    } else {
+        1.0
+    };
+
+    if (extend_command || auto.enabled && auto.extend) && !autopause {
+        stretch.factor = (stretch.factor + STRETCH_RATE * dt * slow_factor).min(MAX_STRETCH);
+    } else if (retract_command || auto.enabled && auto.retract) && !autopause {
         stretch.factor = (stretch.factor - RETRACT_RATE * dt).max(MIN_STRETCH);
     }
 
