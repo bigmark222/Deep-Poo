@@ -6,6 +6,7 @@ use bevy::ui::{
 
 use crate::controls::ControlParams;
 use crate::probe::TipSense;
+use crate::polyp::PolypTelemetry;
 
 #[derive(Component)]
 pub struct ControlText;
@@ -114,6 +115,30 @@ pub fn spawn_controls_ui(mut commands: Commands) {
                 },
                 TextColor(accent),
             ),
+            (
+                TextSpan::from("POLYPS :: 0/0\n"),
+                TextFont {
+                    font_size: 15.0,
+                    ..default()
+                },
+                TextColor(line),
+            ),
+            (
+                TextSpan::from("NEAREST :: -- m"),
+                TextFont {
+                    font_size: 15.0,
+                    ..default()
+                },
+                TextColor(soft),
+            ),
+            (
+                TextSpan::from("REMOVAL :: idle"),
+                TextFont {
+                    font_size: 15.0,
+                    ..default()
+                },
+                TextColor(accent),
+            ),
         ],
     ));
 }
@@ -121,10 +146,11 @@ pub fn spawn_controls_ui(mut commands: Commands) {
 pub fn update_controls_ui(
     control: Res<ControlParams>,
     sense: Res<TipSense>,
+    polyps: Res<PolypTelemetry>,
     ui: Single<Entity, (With<ControlText>, With<Text>)>,
     mut writer: TextUiWriter,
 ) {
-    if control.is_changed() || sense.is_changed() {
+    if control.is_changed() || sense.is_changed() || polyps.is_changed() {
         *writer.text(*ui, 1) = format!("TNS :: {:.2} [ [ ] ]\n", control.tension);
         *writer.text(*ui, 2) = format!("STF :: {:.0} [ ; ' ]\n", control.stiffness);
         *writer.text(*ui, 3) = format!("DMP :: {:.1} [ , . ]\n", control.damping);
@@ -142,5 +168,17 @@ pub fn update_controls_ui(
             "TIP STEER >> {:.2} {:.2} {:.2} ({:.2})",
             sense.steer_dir.x, sense.steer_dir.y, sense.steer_dir.z, sense.steer_strength
         );
+        *writer.text(*ui, 10) = format!("POLYPS :: {}/{}\n", polyps.remaining, polyps.total);
+        let nearest_str = polyps
+            .nearest_distance
+            .map(|d| format!("{:.2} m", d))
+            .unwrap_or_else(|| "--".into());
+        *writer.text(*ui, 11) = format!("NEAREST :: {}", nearest_str);
+        let removal_str = if polyps.removing {
+            format!("REMOVAL :: {:.0}%", polyps.remove_progress * 100.0)
+        } else {
+            "REMOVAL :: idle".to_string()
+        };
+        *writer.text(*ui, 12) = removal_str;
     }
 }

@@ -2,6 +2,7 @@ pub mod camera;
 pub mod balloon_control;
 pub mod controls;
 pub mod hud;
+pub mod polyp;
 pub mod probe;
 pub mod tunnel;
 
@@ -15,6 +16,7 @@ use balloon_control::{
 use camera::{camera_controller, setup_camera};
 use controls::{control_inputs_and_apply, ControlParams};
 use hud::{spawn_controls_ui, update_controls_ui};
+use polyp::{polyp_detection_system, polyp_removal_system, spawn_polyps, PolypRemoval, PolypTelemetry};
 use probe::{distributed_thrust, peristaltic_drive, spawn_probe, StretchState, TipSense};
 use tunnel::{setup_tunnel, tunnel_expansion_system};
 
@@ -28,6 +30,8 @@ pub fn run_app() {
         .insert_resource(BalloonControl::default())
         .insert_resource(StretchState::default())
         .insert_resource(TipSense::default())
+        .insert_resource(PolypTelemetry::default())
+        .insert_resource(PolypRemoval::default())
         .insert_resource(ControlParams {
             tension: 0.5,
             stiffness: 500.0,
@@ -50,6 +54,7 @@ pub fn run_app() {
                 spawn_probe,
                 spawn_balloon_body,
                 spawn_balloon_marker,
+                spawn_polyps,
                 spawn_controls_ui,
             )
                 .chain(),
@@ -64,6 +69,8 @@ pub fn run_app() {
                 control_inputs_and_apply,
                 update_controls_ui,
                 tunnel_expansion_system,
+                polyp_detection_system,
+                polyp_removal_system.after(polyp_detection_system),
             ),
         )
         .add_systems(

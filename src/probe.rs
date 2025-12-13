@@ -6,6 +6,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use crate::controls::ControlParams;
 use crate::balloon_control::BalloonControl;
+use crate::polyp::PolypRemoval;
 use crate::tunnel::{advance_centerline, tunnel_centerline, tunnel_tangent_rotation};
 
 const MIN_STRETCH: f32 = 1.0;
@@ -211,6 +212,7 @@ pub fn peristaltic_drive(
     control: Res<ControlParams>,
     balloon: Res<BalloonControl>,
     rapier: ReadRapierContext<'_, '_>,
+    removal: Res<PolypRemoval>,
     mut sense: ResMut<TipSense>,
     mut stretch: ResMut<StretchState>,
     mut tail_body: Query<(&ProbeBody, Entity, &mut RigidBody, &mut ProbeParam), With<CapsuleProbe>>,
@@ -253,9 +255,12 @@ pub fn peristaltic_drive(
         && (keys.pressed(KeyCode::ArrowDown) || keys.pressed(KeyCode::KeyK));
 
     let dt = time.delta_secs();
-    if extend_command {
+    // Pause manual length changes while removing a polyp.
+    let autopause = removal.in_progress;
+
+    if extend_command && !autopause {
         stretch.factor = (stretch.factor + STRETCH_RATE * dt).min(MAX_STRETCH);
-    } else if retract_command {
+    } else if retract_command && !autopause {
         stretch.factor = (stretch.factor - RETRACT_RATE * dt).max(MIN_STRETCH);
     }
 
