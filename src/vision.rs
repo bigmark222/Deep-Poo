@@ -3,8 +3,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
-use bevy::tasks::{AsyncComputeTaskPool, Task};
-use futures_lite::future;
+use bevy::tasks::Task;
 use image::{ImageFormat, Rgba, RgbaImage};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -18,6 +17,7 @@ use crate::autopilot::AutoDrive;
 use crate::camera::PovState;
 use crate::tunnel::CecumState;
 use crate::cli::RunMode;
+use crate::vision_interfaces::{self, Frame, FrameRecord, Label, Recorder, DetectionResult};
 
 #[derive(Component)]
 pub struct FrontCamera;
@@ -56,6 +56,17 @@ pub struct BurnDetectionResult {
     pub confidence: f32,
 }
 
+struct HeuristicDetector;
+impl vision_interfaces::Detector for HeuristicDetector {
+    fn detect(&mut self, frame: &Frame) -> DetectionResult {
+        DetectionResult {
+            frame_id: frame.id,
+            positive: true,
+            confidence: 0.8,
+        }
+    }
+}
+
 #[derive(Resource)]
 pub struct BurnInferenceState {
     pub pending: Option<Task<BurnDetectionResult>>,
@@ -69,6 +80,19 @@ impl Default for BurnInferenceState {
             pending: None,
             last_result: None,
             debounce: Timer::from_seconds(0.18, TimerMode::Repeating),
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct DetectorHandle {
+    pub detector: Box<dyn vision_interfaces::Detector + Send + Sync>,
+}
+
+impl Default for DetectorHandle {
+    fn default() -> Self {
+        Self {
+            detector: Box::new(HeuristicDetector),
         }
     }
 }
@@ -150,6 +174,7 @@ pub struct CaptureLimit {
 }
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 struct PolypLabel {
     center_world: [f32; 3],
     bbox_px: Option<[f32; 4]>,
@@ -279,9 +304,11 @@ pub fn on_front_capture_readback(
 
 pub fn schedule_burn_inference(
     time: Res<Time>,
-    mut detector: ResMut<BurnDetector>,
+    mut burn_detector: ResMut<BurnDetector>,
     mut jobs: ResMut<BurnInferenceState>,
     mut buffer: ResMut<FrontCameraFrameBuffer>,
+    mut handle: ResMut<DetectorHandle>,
+    capture: Res<FrontCaptureTarget>,
 ) {
     jobs.debounce.tick(time.delta());
     if jobs.pending.is_some() || !jobs.debounce.is_finished() {
@@ -291,31 +318,28 @@ pub fn schedule_burn_inference(
         return;
     };
 
-    // Placeholder inference off the main thread; replace with real burn model.
-    let task = AsyncComputeTaskPool::get().spawn(async move {
-        let confidence = 0.8;
-        let positive = true;
-        BurnDetectionResult {
-            frame_id: frame.id,
-            positive,
-            confidence,
-        }
+    // Run detection via the vision interface (sync for now).
+    let f = Frame {
+        id: frame.id,
+        timestamp: frame.captured_at,
+        rgba: None,
+        size: (capture.size.x, capture.size.y),
+        path: None,
+    };
+    let result = handle.detector.detect(&f);
+    burn_detector.model_loaded = true;
+    jobs.last_result = Some(BurnDetectionResult {
+        frame_id: result.frame_id,
+        positive: result.positive,
+        confidence: result.confidence,
     });
-    detector.model_loaded = true;
-    jobs.pending = Some(task);
 }
 
 pub fn poll_burn_inference(
-    mut jobs: ResMut<BurnInferenceState>,
+    jobs: Res<BurnInferenceState>,
     mut votes: ResMut<PolypDetectionVotes>,
 ) {
-    if let Some(task) = jobs.pending.as_mut() {
-        if let Some(result) = future::block_on(future::poll_once(task)) {
-            votes.vision = result.positive;
-            jobs.last_result = Some(result);
-            jobs.pending = None;
-        }
-    } else if let Some(result) = jobs.last_result.as_ref() {
+    if let Some(result) = jobs.last_result.as_ref() {
         votes.vision = result.positive;
     }
 }
@@ -340,14 +364,8 @@ pub fn recorder_toggle_hotkey(
     state.last_toggle = time.elapsed_secs_f64();
     if state.enabled {
         if !state.initialized {
-            init_run_dirs(
-                &mut state,
-                &config,
-                time.elapsed_secs_f64(),
-                &polyp_meta,
-                &cap_limit,
-            );
-        }
+        init_run_dirs(&mut state, &config, &polyp_meta, &cap_limit);
+    }
         state.paused = false;
         state.overlays_done = false;
     } else {
@@ -393,7 +411,7 @@ pub fn auto_start_recording(
     }
 
     if !state.initialized {
-        init_run_dirs(&mut state, &config, time.elapsed_secs_f64(), &polyp_meta, &cap_limit);
+        init_run_dirs(&mut state, &config, &polyp_meta, &cap_limit);
     }
     state.enabled = true;
     state.last_toggle = time.elapsed_secs_f64();
@@ -481,13 +499,16 @@ fn generate_overlays(run_dir: &Path) {
 pub(crate) fn init_run_dirs(
     state: &mut RecorderState,
     config: &RecorderConfig,
-    started_at: f64,
     polyp_meta: &crate::polyp::PolypSpawnMeta,
     cap_limit: &CaptureLimit,
 ) {
-    let session = format!("run_{}", started_at as u64);
-    let dir = config.output_root.join(session);
-    state.session_dir = dir;
+    let started_unix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0);
+    let started_ms = (started_unix * 1000.0).round() as u128;
+    let session = format!("run_{}", started_ms);
+    state.session_dir = config.output_root.join(session);
     state.frame_idx = 0;
     let _ = fs::create_dir_all(&state.session_dir);
     let _ = fs::create_dir_all(state.session_dir.join(IMAGES_DIR));
@@ -499,7 +520,7 @@ pub(crate) fn init_run_dirs(
             seed: polyp_meta.seed,
             output_root: config.output_root.clone(),
             run_dir: state.session_dir.clone(),
-            started_at_unix: started_at,
+            started_at_unix: started_unix,
             max_frames: cap_limit.max_frames,
         };
         let manifest_path = state.session_dir.join("run_manifest.json");
@@ -547,6 +568,41 @@ fn draw_rect(img: &mut RgbaImage, bbox: [f32; 4], color: Rgba<u8>, thickness: u3
                 img.put_pixel(xx1, y, color);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+    use tempfile::tempdir;
+
+    #[test]
+    fn init_run_dirs_writes_manifest_and_dirs() {
+        let dir = tempdir().unwrap();
+        let output_root = dir.path().to_path_buf();
+
+        let mut state = RecorderState::default();
+        let config = RecorderConfig {
+            output_root: output_root.clone(),
+            ..Default::default()
+        };
+        let polyp_meta = crate::polyp::PolypSpawnMeta { seed: 999 };
+        let cap_limit = CaptureLimit { max_frames: Some(5) };
+
+        init_run_dirs(&mut state, &config, &polyp_meta, &cap_limit);
+
+        assert!(state.initialized);
+        assert!(state.session_dir.starts_with(&output_root));
+        assert!(state.session_dir.join(IMAGES_DIR).is_dir());
+        assert!(state.session_dir.join(LABELS_DIR).is_dir());
+        assert!(state.session_dir.join(OVERLAYS_DIR).is_dir());
+
+        let manifest_path = state.session_dir.join("run_manifest.json");
+        let manifest: Value = serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+        assert_eq!(manifest["seed"], 999);
+        assert_eq!(manifest["max_frames"], 5);
+        assert!(manifest["started_at_unix"].as_f64().unwrap() > 0.0);
     }
 }
 
@@ -656,58 +712,95 @@ pub fn record_front_camera_metadata(
         });
     }
 
-    let image_name = format!("frame_{:05}.png", state.frame_idx);
-    let images_dir = state.session_dir.join(IMAGES_DIR);
-    let _ = fs::create_dir_all(&images_dir);
-    let image_path = images_dir.join(&image_name);
-    let mut image_present = false;
-    if let Some(data) = readback.latest.as_ref() {
-        let expected_len = (capture.size.x * capture.size.y * 4) as usize;
-        if data.len() == expected_len
-            && image::save_buffer_with_format(
-                &image_path,
-                data,
-                capture.size.x,
-                capture.size.y,
-                image::ColorType::Rgba8,
-                ImageFormat::Png,
-            )
-            .is_ok()
-        {
-            image_present = true;
-            state.last_image_ok = true;
-        } else {
-            state.last_image_ok = false;
-        }
-    }
-
-    let meta = CaptureMetadata {
-        frame_id: frame.id,
-        sim_time: frame.captured_at,
-        unix_time: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs_f64())
-            .unwrap_or(0.0),
-        image: format!("{}/{}", IMAGES_DIR, image_name),
-        image_present,
+    let frame_image = readback.latest.clone();
+    let file_labels: Vec<Label> = labels
+        .iter()
+        .map(|l| Label {
+            center_world: l.center_world,
+            bbox_px: l.bbox_px,
+            bbox_norm: l.bbox_norm,
+        })
+        .collect();
+    let frame = Frame {
+        id: frame.id,
+        timestamp: frame.captured_at,
+        rgba: frame_image,
+        size: (capture.size.x, capture.size.y),
+        path: None,
+    };
+    let record = FrameRecord {
+        frame,
+        labels: &file_labels,
         camera_active: front_state.active,
         polyp_seed: spawn_meta.seed,
+    };
+    let mut recorder = DiskRecorder {
+        state: &mut state,
+        config: &config,
         polyp_labels: labels,
     };
-
-    let out_dir = state.session_dir.join(LABELS_DIR);
-    let _ = fs::create_dir_all(&out_dir);
-    let meta_path = out_dir.join(format!("frame_{:05}.json", state.frame_idx));
-    if let Ok(serialized) = serde_json::to_string_pretty(&meta) {
-        let _ = fs::write(meta_path, serialized);
-    }
-    state.frame_idx += 1;
+    let _ = recorder.record(&record);
 
     if let Some(max) = cap_limit.max_frames {
         if state.frame_idx >= max as u64 {
             state.enabled = false;
             // Keep data_run.active true so finalize_datagen_run can cleanly exit and write overlays.
         }
+    }
+}
+
+struct DiskRecorder<'a> {
+    state: &'a mut RecorderState,
+    config: &'a RecorderConfig,
+    polyp_labels: Vec<PolypLabel>,
+}
+
+impl<'a> Recorder for DiskRecorder<'a> {
+    fn record(&mut self, record: &FrameRecord) -> std::io::Result<()> {
+        let image_name = format!("frame_{:05}.png", self.state.frame_idx);
+        let images_dir = self.state.session_dir.join(IMAGES_DIR);
+        fs::create_dir_all(&images_dir)?;
+        let image_path = images_dir.join(&image_name);
+        let mut image_present = false;
+        if let Some(data) = record.frame.rgba.as_ref() {
+            let expected_len = (self.config.resolution.x * self.config.resolution.y * 4) as usize;
+            if data.len() == expected_len {
+                image::save_buffer_with_format(
+                    &image_path,
+                    data,
+                    self.config.resolution.x,
+                    self.config.resolution.y,
+                    image::ColorType::Rgba8,
+                    ImageFormat::Png,
+                )
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+                image_present = true;
+                self.state.last_image_ok = true;
+            } else {
+                self.state.last_image_ok = false;
+            }
+        }
+
+        let meta = CaptureMetadata {
+            frame_id: record.frame.id,
+            sim_time: record.frame.timestamp,
+            unix_time: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0),
+            image: format!("{}/{}", IMAGES_DIR, image_name),
+            image_present,
+            camera_active: record.camera_active,
+            polyp_seed: record.polyp_seed,
+            polyp_labels: self.polyp_labels.clone(),
+        };
+
+        let out_dir = self.state.session_dir.join(LABELS_DIR);
+        fs::create_dir_all(&out_dir)?;
+        let meta_path = out_dir.join(format!("frame_{:05}.json", self.state.frame_idx));
+        fs::write(meta_path, serde_json::to_string_pretty(&meta)?)?;
+        self.state.frame_idx += 1;
+        Ok(())
     }
 }
 
@@ -743,6 +836,7 @@ pub fn datagen_failsafe_recording(
     config: ResMut<RecorderConfig>,
     polyp_meta: Res<crate::polyp::PolypSpawnMeta>,
     cap_limit: Res<CaptureLimit>,
+    head_q: Query<&GlobalTransform, With<crate::probe::ProbeHead>>,
 ) {
     if *mode != RunMode::Datagen {
         return;
@@ -750,18 +844,26 @@ pub fn datagen_failsafe_recording(
     if !init.started || state.enabled {
         return;
     }
+    let Ok(head_tf) = head_q.single() else {
+        return;
+    };
+    let z = head_tf.translation().z;
+    if let Some(last) = motion.last_head_z {
+        let dz = z - last;
+        if dz > 0.0 {
+            motion.cumulative_forward += dz;
+        }
+    }
+    motion.last_head_z = Some(z);
+
     init.elapsed += time.delta_secs();
-    if init.elapsed < 5.0 {
+    // Only start after forward motion begins; timer is just a guard against never starting.
+    if motion.cumulative_forward < 0.25 {
         return;
     }
+
     if !state.initialized {
-        init_run_dirs(
-            &mut state,
-            &config,
-            time.elapsed_secs_f64(),
-            &polyp_meta,
-            &cap_limit,
-        );
+        init_run_dirs(&mut state, &config, &polyp_meta, &cap_limit);
     }
     state.enabled = true;
     state.last_toggle = time.elapsed_secs_f64();
@@ -769,3 +871,7 @@ pub fn datagen_failsafe_recording(
     motion.started = true;
     init.elapsed = 0.0;
 }
+// Adapters for the vision interfaces can be introduced here when swapping
+// detectors/sources; left uninstantiated for now to avoid unused-code noise.
+// (e.g., a CaptureSource wrapping FrontCameraFrameBuffer/FrontCaptureReadback,
+// and a DiskRecorder wrapping RecorderState/Config).

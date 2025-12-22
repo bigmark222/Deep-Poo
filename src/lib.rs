@@ -8,6 +8,9 @@ pub mod probe;
 pub mod tunnel;
 pub mod vision;
 pub mod cli;
+pub mod vision_interfaces;
+pub mod seed;
+pub mod tools;
 
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -28,6 +31,7 @@ use polyp::{
     apply_detection_votes, polyp_detection_system, polyp_removal_system, spawn_polyps,
     PolypDetectionVotes, PolypRemoval, PolypRandom, PolypSpawnMeta, PolypTelemetry,
 };
+use seed::{resolve_seed, SeedState};
 use probe::{distributed_thrust, peristaltic_drive, spawn_probe, StretchState, TipSense};
 use tunnel::{setup_tunnel, tunnel_expansion_system, cecum_detection, start_detection, CecumState};
 use vision::{
@@ -37,14 +41,16 @@ use vision::{
     datagen_failsafe_recording,
     track_front_camera_state, AutoRecordTimer, BurnDetector, BurnInferenceState,
     FrontCameraFrameBuffer, FrontCaptureReadback, FrontCameraState, RecorderConfig, RecorderState,
-    RecorderMotion,
+    RecorderMotion, DetectorHandle,
 };
 
 pub fn run_app(args: crate::cli::AppArgs) {
-    let polyp_seed = args.seed.unwrap_or_else(PolypRandom::seed_from_env_or_time);
+    let polyp_seed = resolve_seed(args.seed);
     let headless = args.headless;
     App::new()
+        .insert_resource(SeedState { value: polyp_seed })
         .insert_resource(args.mode)
+        .insert_resource(DetectorHandle::default())
         .insert_resource(AmbientLight {
             color: Color::srgb(1.0, 1.0, 1.0),
             brightness: 0.4,
