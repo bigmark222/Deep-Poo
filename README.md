@@ -51,7 +51,7 @@ cargo run --release
 - Set `RAPIER_DEBUG_WIREFRAMES` in `src/lib.rs` to `true` to show collider wireframes (orange), or `false` to hide them. Rebuild/run after changing.
 
 ## License
-This project is licensed under the GNU Affero General Public License v3.0. See `LICENSE` for full terms. For commercial licensing options, see `COMMERCIAL_LICENSE.md`.
+This project is licensed under the GNU Affero General Public License v3.0. See `LICENSE` for full terms. For commercial licensing options, see `COMMERCIAL_LICENSE.md` (no patent license is granted under the default AGPL; commercial use that practices relevant patents requires a separate agreement).
 
 ## Documentation (mdBook)
 Published docs: [https://via-balaena.github.io/Deep_Poo/](https://via-balaena.github.io/Deep_Poo/)
