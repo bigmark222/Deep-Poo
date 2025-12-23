@@ -55,3 +55,10 @@ This project is licensed under the GNU Affero General Public License v3.0. See `
 
 ## Burn dataset loader
 See `docs/burn_dataset.md` for how to load capture runs, split train/val, and build Burn-ready batches with letterboxing and padded boxes.
+
+## Burn training harness
+Quick start:
+```bash
+cargo run --features burn_runtime --bin train -- --help
+```
+Key flags: `--batch-size`, `--epochs`, `--lr-start/--lr-end`, `--val-ratio`, `--seed`, `--ckpt-dir`, and val metric thresholds `--val-obj-thresh/--val-iou-thresh`. See `docs/training.md` for details.
