@@ -36,5 +36,5 @@
   - Add a Burn training harness sanity test (multi-step, batch>1) under `burn_runtime` to catch API drift. ✅ (tests/train_harness.rs)
 - Docs: training doc lacks full workflow (data prep, expected outputs, sample checkpoint); deployment guidance for Burn model is minimal.
   - Expand `training.md` with an end-to-end workflow: data prep (capture/prune), expected outputs/artifacts, and a sample command. ✅
-  - Document how to obtain/use a sample checkpoint (download path or bundled file) and how to load it via CLI flag.
-  - Add deployment guidance: where to place the Burn checkpoint for runtime, how to toggle detectors, and inference threshold knobs.
+  - Document how to obtain/use a sample checkpoint (download path or bundled file) and how to load it via CLI flag. ✅ (training.md)
+  - Add deployment guidance: where to place the Burn checkpoint for runtime, how to toggle detectors, and inference threshold knobs. ✅ (training.md, cli.md)

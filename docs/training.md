@@ -36,6 +36,7 @@ Common flags:
 - Seeds: if `--seed` is omitted, a default seed (42) is used and logged for repeatability.
 - `--demo-checkpoint <path>`: optional model checkpoint to load at startup (model only; skips optimizer/scheduler). Use to run with a bundled/demo weight file if available.
 - `--metrics-out <path>`: optional JSONL output; if set, appends per-epoch val metrics (IoU/PR/mAP, tp/fp/fn) with seed and thresholds.
+- `--demo-checkpoint <path>`: optional model checkpoint to load at startup (model only; skips optimizer/scheduler). Use this to try a bundled/demo weight if provided.
 
 Sample run (CPU backend):
 ```bash
@@ -76,6 +77,8 @@ Notes:
 - Requires `--features burn_runtime` to pull in Burn and the training harness. Add `burn_wgpu` to use the GPU backend (wgpu) when available; otherwise NdArray CPU is used.
 - Val metric thresholds are tunable via CLI; adjust to trade off recall/precision during evaluation.
 - Runtime inference will attempt to load `checkpoints/tinydet.bin`; if missing or failed, it logs a warning and falls back to the heuristic detector.
+- Demo/bundled checkpoint: if you have a packaged checkpoint (e.g., `assets/checkpoints/tinydet_demo.bin`), pass `--demo-checkpoint <path>` during training/eval. For runtime, place it at `checkpoints/tinydet.bin` (or update the CLI flags) so the sim loads it automatically.
+- Runtime knobs: during sim, adjust thresholds with `-`/`=` (obj) and `[`/`]` (IoU); press `B` to toggle between Burn/heuristic detectors. The HUD shows mode, box count, and inference latency, plus a fallback banner if Burn is unavailable.
 - Eval-only: use `cargo run --features burn_runtime --bin eval -- --checkpoint <path> --input-root <val_root> [--val-iou-sweep ...] [--metrics-out ...]` to score a checkpoint without training.
 - Runtime thresholds: during sim, adjust detection thresholds with `-`/`=` (objectness down/up) and `[`/`]` (IoU down/up); HUD will reflect updates.
 - Runtime detector toggle: press `B` to switch between Burn and heuristic detectors; the HUD VISION line shows the active mode and box stats.

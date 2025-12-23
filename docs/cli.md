@@ -18,6 +18,7 @@ The simulator includes a Clap-based CLI to control run mode, seeding, outputs, a
 - `-`/`=`: decrease/increase objectness threshold.
 - `[`/`]`: decrease/increase IoU threshold.
 - `B`: toggle between Burn and heuristic detectors; HUD shows the active mode/box stats.
+- Burn checkpoint: place model at `checkpoints/tinydet.bin` (runtime loads automatically). If missing or load fails, sim falls back to the heuristic detector and shows a fallback banner in the HUD.
 
 ## Examples
 - Interactive sim (visible):
