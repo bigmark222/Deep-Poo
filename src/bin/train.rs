@@ -63,6 +63,12 @@ mod real {
         /// Validation IoU threshold for metric matching/NMS.
         #[arg(long, default_value_t = 0.5)]
         val_iou_thresh: f32,
+        /// Early stop after N epochs without val IoU improvement (0 disables).
+        #[arg(long, default_value_t = 0)]
+        patience: usize,
+        /// Minimum delta to consider val IoU improved.
+        #[arg(long, default_value_t = 0.0)]
+        patience_min_delta: f32,
     }
 
     type Backend = NdArray<f32>;
@@ -128,6 +134,9 @@ mod real {
             &mut scheduler,
         );
 
+        let mut best_val = f32::NEG_INFINITY;
+        let mut no_improve = 0usize;
+        let mut stop_early = false;
         for epoch in 0..args.epochs {
             println!("epoch {}", epoch + 1);
             let mut train = BatchIter::from_indices(train_idx.clone(), cfg.clone())
@@ -202,7 +211,21 @@ mod real {
                 val_batches += 1;
             }
             if val_batches > 0 {
-                println!("val mean IoU = {:.4}", val_sum / val_batches as f32);
+                let val_mean = val_sum / val_batches as f32;
+                println!("val mean IoU = {:.4}", val_mean);
+                if val_mean > best_val + args.patience_min_delta {
+                    best_val = val_mean;
+                    no_improve = 0;
+                } else {
+                    no_improve += 1;
+                    if args.patience > 0 && no_improve >= args.patience {
+                        println!(
+                            "Early stopping: no val improvement for {} epochs (best {:.4})",
+                            args.patience, best_val
+                        );
+                        stop_early = true;
+                    }
+                }
             } else {
                 println!("No val batches found under {:?}", root);
             }
@@ -218,6 +241,10 @@ mod real {
                     &optim,
                     &scheduler,
                 );
+            }
+
+            if stop_early {
+                break;
             }
         }
 

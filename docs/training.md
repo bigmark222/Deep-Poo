@@ -18,12 +18,13 @@ Common flags:
 - `--ckpt-dir <path>`: where model/optim/scheduler checkpoints are read/written (default `checkpoints`)
 - `--val-obj-thresh <f32>`: objectness threshold for val matching (default 0.3)
 - `--val-iou-thresh <f32>`: IoU threshold for NMS/matching (default 0.5)
+- `--patience <usize>` / `--patience-min-delta <f32>`: optional early stop on val IoU plateau
 
 What it does today:
 - Loads capture runs via `BatchIter` (train with aug; val without), builds TinyDet, AdamW, and a linear LR scheduler.
 - Runs epoch/batch loop with per-step optimizer updates; logs loss and mean IoU each log interval.
 - Validation: decodes per-cell predictions, applies sigmoid + NMS, matches to GT boxes with IoU threshold, and averages IoU across val batches.
-- Checkpoints: on start, loads model/optim/scheduler from `ckpt_dir` if present; saves them per configured cadence (steps/epochs).
+- Checkpoints: on start, loads model/optim/scheduler from `ckpt_dir` if present; saves them per configured cadence (steps/epochs). Optional early stop tracks best val IoU.
 
 Notes:
 - Requires `--features burn_runtime` to pull in Burn and the training harness.
