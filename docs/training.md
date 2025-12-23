@@ -10,6 +10,9 @@ Common flags:
 - `--epochs <N>`: number of epochs (default 1)
 - `--log-every <N>`: log loss/IoU every N steps (default 1)
 - `--lr-start <f64>`, `--lr-end <f64>`: linear LR schedule across total steps
+- `--scheduler <linear|cosine>`: pick LR schedule type
+- `--ckpt-every-steps <usize>`: checkpoint cadence in steps (0 disables)
+- `--ckpt-every-epochs <usize>`: checkpoint cadence in epochs
 - `--val-ratio <f32>`: fraction of runs for validation split (default 0.2)
 - `--seed <u64>`: deterministic shuffle/splits; omit for random
 - `--ckpt-dir <path>`: where model/optim/scheduler checkpoints are read/written (default `checkpoints`)
@@ -20,7 +23,7 @@ What it does today:
 - Loads capture runs via `BatchIter` (train with aug; val without), builds TinyDet, AdamW, and a linear LR scheduler.
 - Runs epoch/batch loop with per-step optimizer updates; logs loss and mean IoU each log interval.
 - Validation: decodes per-cell predictions, applies sigmoid + NMS, matches to GT boxes with IoU threshold, and averages IoU across val batches.
-- Checkpoints: on start, loads model/optim/scheduler from `ckpt_dir` if present; saves them at the end of each epoch.
+- Checkpoints: on start, loads model/optim/scheduler from `ckpt_dir` if present; saves them per configured cadence (steps/epochs).
 
 Notes:
 - Requires `--features burn_runtime` to pull in Burn and the training harness.

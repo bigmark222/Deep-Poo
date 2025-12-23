@@ -5,7 +5,11 @@ mod real {
 
     use anyhow::Result;
     use burn::backend::{autodiff::Autodiff, ndarray::NdArray};
-    use burn::lr_scheduler::{linear::LinearLrSchedulerConfig, LrScheduler};
+    use burn::lr_scheduler::{
+        cosine::{CosineAnnealingLrScheduler, CosineAnnealingLrSchedulerConfig},
+        linear::{LinearLrScheduler, LinearLrSchedulerConfig},
+        LrScheduler,
+    };
     use burn::module::Module;
     use burn::optim::{AdamWConfig, GradientsParams, Optimizer};
     use burn::optim::adaptor::OptimizerAdaptor;
@@ -44,6 +48,15 @@ mod real {
         /// Checkpoint directory.
         #[arg(long, default_value = "checkpoints")]
         ckpt_dir: String,
+        /// Scheduler type: linear or cosine.
+        #[arg(long, default_value = "linear", value_parser = ["linear", "cosine"])]
+        scheduler: String,
+        /// Checkpoint every N steps (0 = disabled).
+        #[arg(long, default_value_t = 0)]
+        ckpt_every_steps: usize,
+        /// Checkpoint every N epochs.
+        #[arg(long, default_value_t = 1)]
+        ckpt_every_epochs: usize,
         /// Validation objectness threshold for metric matching.
         #[arg(long, default_value_t = 0.3)]
         val_obj_thresh: f32,
@@ -59,7 +72,12 @@ mod real {
         TinyDet<ADBackend>,
         ADBackend,
     >;
-    type Scheduler = burn::lr_scheduler::linear::LinearLrScheduler;
+
+    #[derive(Clone, Copy)]
+    enum Scheduler {
+        Linear(LinearLrScheduler),
+        Cosine(CosineAnnealingLrScheduler),
+    }
 
     pub fn main_impl() -> Result<()> {
         let args = TrainArgs::parse();
@@ -88,8 +106,17 @@ mod real {
             let per_epoch = (train_idx.len().max(1) + args.batch_size - 1) / args.batch_size;
             per_epoch.max(1) * args.epochs
         };
-        let mut scheduler =
-            LinearLrSchedulerConfig::new(args.lr_start, args.lr_end, total_steps.max(1)).init();
+        let mut scheduler = match args.scheduler.as_str() {
+            "cosine" => Scheduler::Cosine(
+                CosineAnnealingLrSchedulerConfig::new(args.lr_start, total_steps.max(1))
+                    .with_min_lr(args.lr_end)
+                    .init(),
+            ),
+            _ => Scheduler::Linear(
+                LinearLrSchedulerConfig::new(args.lr_start, args.lr_end, total_steps.max(1))
+                    .init(),
+            ),
+        };
         load_checkpoint(
             &args.ckpt_dir,
             "tinydet",
@@ -106,12 +133,14 @@ mod real {
             let mut train = BatchIter::from_indices(train_idx.clone(), cfg.clone())
                 .map_err(|e| anyhow::anyhow!("{:?}", e))?;
             let mut step = 0usize;
+            let mut global_step = 0usize;
 
             while let Some(batch) = train
                 .next_batch::<ADBackend>(args.batch_size, &device)
                 .map_err(|e| anyhow::anyhow!("{:?}", e))?
             {
                 step += 1;
+                global_step += 1;
                 let (obj_logits, box_logits) = model.forward(batch.images.clone());
                 let (t_obj, t_boxes, t_mask) =
                     build_targets(&batch, obj_logits.dims()[2], obj_logits.dims()[3], &device)?;
@@ -132,7 +161,7 @@ mod real {
                     .unwrap_or(0.0);
                 let grads = loss.backward();
                 let grads = GradientsParams::from_grads(grads, &model);
-                let lr = <Scheduler as LrScheduler<ADBackend>>::step(&mut scheduler);
+                let lr = scheduler_step(&mut scheduler);
                 model = optim.step(lr, model, grads);
 
                 if step % args.log_every == 0 {
@@ -141,6 +170,19 @@ mod real {
                         "step {step}: loss={:.4}, mean_iou={:.4}",
                         loss_scalar,
                         mean_iou
+                    );
+                }
+
+                if args.ckpt_every_steps > 0 && global_step % args.ckpt_every_steps == 0 {
+                    save_checkpoint(
+                        &args.ckpt_dir,
+                        "tinydet",
+                        "tinydet_optim",
+                        "tinydet_sched",
+                        &device,
+                        &model,
+                        &optim,
+                        &scheduler,
                     );
                 }
             }
@@ -165,16 +207,18 @@ mod real {
                 println!("No val batches found under {:?}", root);
             }
 
-            save_checkpoint(
-                &args.ckpt_dir,
-                "tinydet",
-                "tinydet_optim",
-                "tinydet_sched",
-                &device,
-                &model,
-                &optim,
-                &scheduler,
-            );
+            if args.ckpt_every_epochs > 0 && (epoch + 1) % args.ckpt_every_epochs == 0 {
+                save_checkpoint(
+                    &args.ckpt_dir,
+                    "tinydet",
+                    "tinydet_optim",
+                    "tinydet_sched",
+                    &device,
+                    &model,
+                    &optim,
+                    &scheduler,
+                );
+            }
         }
 
         Ok(())
@@ -226,6 +270,13 @@ mod real {
         Ok((obj_t, boxes_t, mask_t))
     }
 
+    fn scheduler_step(s: &mut Scheduler) -> f64 {
+        match s {
+            Scheduler::Linear(inner) => LrScheduler::<ADBackend>::step(inner),
+            Scheduler::Cosine(inner) => LrScheduler::<ADBackend>::step(inner),
+        }
+    }
+
     fn load_checkpoint(
         dir: &str,
         model_name: &str,
@@ -254,12 +305,23 @@ mod real {
             }
         }
         if sched_path.with_extension("bin").exists() {
-            if let Ok(record) =
-                burn::record::Recorder::<ADBackend>::load(&recorder, sched_path, device)
-            {
-                *scheduler =
-                    burn::lr_scheduler::LrScheduler::<ADBackend>::load_record(*scheduler, record);
-                println!("Loaded scheduler checkpoint");
+            match scheduler {
+                Scheduler::Linear(s) => {
+                    if let Ok(record) =
+                        burn::record::Recorder::<ADBackend>::load(&recorder, sched_path.clone(), device)
+                    {
+                        *s = burn::lr_scheduler::LrScheduler::<ADBackend>::load_record(*s, record);
+                        println!("Loaded scheduler checkpoint (linear)");
+                    }
+                }
+                Scheduler::Cosine(s) => {
+                    if let Ok(record) =
+                        burn::record::Recorder::<ADBackend>::load(&recorder, sched_path.clone(), device)
+                    {
+                        *s = burn::lr_scheduler::LrScheduler::<ADBackend>::load_record(*s, record);
+                        println!("Loaded scheduler checkpoint (cosine)");
+                    }
+                }
             }
         }
     }
@@ -285,12 +347,27 @@ mod real {
         if let Err(err) = recorder.record(optim.to_record(), optim_path) {
             eprintln!("Failed to save optimizer checkpoint: {:?}", err);
         }
-        let sched_record =
-            burn::lr_scheduler::LrScheduler::<ADBackend>::to_record(scheduler);
-        if let Err(err) =
-            burn::record::Recorder::<ADBackend>::record(&recorder, sched_record, sched_path)
-        {
-            eprintln!("Failed to save scheduler checkpoint: {:?}", err);
+        match scheduler {
+            Scheduler::Linear(s) => {
+                let sched_record = burn::lr_scheduler::LrScheduler::<ADBackend>::to_record(s);
+                if let Err(err) = burn::record::Recorder::<ADBackend>::record(
+                    &recorder,
+                    sched_record,
+                    sched_path.clone(),
+                ) {
+                    eprintln!("Failed to save scheduler checkpoint: {:?}", err);
+                }
+            }
+            Scheduler::Cosine(s) => {
+                let sched_record = burn::lr_scheduler::LrScheduler::<ADBackend>::to_record(s);
+                if let Err(err) = burn::record::Recorder::<ADBackend>::record(
+                    &recorder,
+                    sched_record,
+                    sched_path.clone(),
+                ) {
+                    eprintln!("Failed to save scheduler checkpoint: {:?}", err);
+                }
+            }
         }
         // touch device to keep warning-free
         let _ = device;
