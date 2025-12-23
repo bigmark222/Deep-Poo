@@ -1,6 +1,6 @@
-use bevy::prelude::*;
 use bevy::ecs::system::RunSystemOnce;
-use colon_sim::polyp::{spawn_polyps, Polyp, PolypRandom, PolypSpawnMeta};
+use bevy::prelude::*;
+use colon_sim::polyp::{Polyp, PolypRandom, PolypSpawnMeta, spawn_polyps};
 
 fn run_polyp_layout(seed: u64) -> Vec<Vec3> {
     let mut app = App::new();

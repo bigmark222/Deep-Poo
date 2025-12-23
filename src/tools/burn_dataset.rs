@@ -407,6 +407,7 @@ impl BatchIter {
     pub fn next_batch<B: burn::tensor::backend::Backend>(
         &mut self,
         batch_size: usize,
+        device: &B::Device,
     ) -> Result<Option<BurnBatch<B>>, Box<dyn Error + Send + Sync>> {
         if self.cursor >= self.indices.len() {
             return Ok(None);
@@ -455,10 +456,14 @@ impl BatchIter {
         let boxes_shape = [slice.len(), self.cfg.max_boxes, 4];
         let mask_shape = [slice.len(), self.cfg.max_boxes];
 
-        let images = burn::tensor::Tensor::<B, 4>::from_floats(images, image_shape);
-        let boxes = burn::tensor::Tensor::<B, 3>::from_floats(boxes, boxes_shape);
-        let box_mask = burn::tensor::Tensor::<B, 2>::from_floats(box_mask, mask_shape);
-        let frame_ids = burn::tensor::Tensor::<B, 1>::from_floats(frame_ids, [slice.len()]);
+        let images = burn::tensor::Tensor::<B, 4>::from_floats(images.as_slice(), device)
+            .reshape(image_shape);
+        let boxes = burn::tensor::Tensor::<B, 3>::from_floats(boxes.as_slice(), device)
+            .reshape(boxes_shape);
+        let box_mask = burn::tensor::Tensor::<B, 2>::from_floats(box_mask.as_slice(), device)
+            .reshape(mask_shape);
+        let frame_ids = burn::tensor::Tensor::<B, 1>::from_floats(frame_ids.as_slice(), device)
+            .reshape([slice.len()]);
 
         Ok(Some(BurnBatch {
             images,

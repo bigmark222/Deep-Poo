@@ -10,14 +10,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::polyp::PolypDetectionVotes;
-use crate::balloon_control::BalloonControl;
-use crate::polyp::PolypTelemetry;
 use crate::autopilot::AutoDrive;
+use crate::balloon_control::BalloonControl;
 use crate::camera::PovState;
-use crate::tunnel::CecumState;
 use crate::cli::RunMode;
-use crate::vision_interfaces::{self, Frame, FrameRecord, Label, Recorder, DetectionResult};
+use crate::polyp::PolypDetectionVotes;
+use crate::polyp::PolypTelemetry;
+use crate::tunnel::CecumState;
+use crate::vision_interfaces::{self, DetectionResult, Frame, FrameRecord, Label, Recorder};
 
 #[derive(Component)]
 pub struct FrontCamera;
@@ -173,8 +173,7 @@ pub struct CaptureLimit {
     pub max_frames: Option<u32>,
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 struct PolypLabel {
     center_world: [f32; 3],
     bbox_px: Option<[f32; 4]>,
@@ -258,7 +257,10 @@ pub fn setup_front_capture(
     image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC;
     let handle = images.add(image);
     let entity = commands
-        .spawn((Name::new("FrontCaptureTarget"), Readback::texture(handle.clone())))
+        .spawn((
+            Name::new("FrontCaptureTarget"),
+            Readback::texture(handle.clone()),
+        ))
         .id();
     commands.insert_resource(FrontCaptureTarget {
         handle: handle.clone(),
@@ -335,10 +337,7 @@ pub fn schedule_burn_inference(
     });
 }
 
-pub fn poll_burn_inference(
-    jobs: Res<BurnInferenceState>,
-    mut votes: ResMut<PolypDetectionVotes>,
-) {
+pub fn poll_burn_inference(jobs: Res<BurnInferenceState>, mut votes: ResMut<PolypDetectionVotes>) {
     if let Some(result) = jobs.last_result.as_ref() {
         votes.vision = result.positive;
     }
@@ -364,8 +363,8 @@ pub fn recorder_toggle_hotkey(
     state.last_toggle = time.elapsed_secs_f64();
     if state.enabled {
         if !state.initialized {
-        init_run_dirs(&mut state, &config, &polyp_meta, &cap_limit);
-    }
+            init_run_dirs(&mut state, &config, &polyp_meta, &cap_limit);
+        }
         state.paused = false;
         state.overlays_done = false;
     } else {
@@ -472,7 +471,10 @@ fn generate_overlays(run_dir: &Path) {
         if path.extension().and_then(|s| s.to_str()) != Some("json") {
             continue;
         }
-        let Ok(meta) = fs::read(&path).and_then(|bytes| serde_json::from_slice::<CaptureMetadata>(&bytes).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))) else {
+        let Ok(meta) = fs::read(&path).and_then(|bytes| {
+            serde_json::from_slice::<CaptureMetadata>(&bytes)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        }) else {
             continue;
         };
         if !meta.image_present {
@@ -534,9 +536,7 @@ pub(crate) fn init_run_dirs(
 
 fn draw_rect(img: &mut RgbaImage, bbox: [f32; 4], color: Rgba<u8>, thickness: u32) {
     let (w, h) = img.dimensions();
-    let clamp = |v: f32, max: u32| -> u32 {
-        v.max(0.0).min((max as i32 - 1) as f32) as u32
-    };
+    let clamp = |v: f32, max: u32| -> u32 { v.max(0.0).min((max as i32 - 1) as f32) as u32 };
     let x0 = clamp(bbox[0], w);
     let y0 = clamp(bbox[1], h);
     let x1 = clamp(bbox[2], w);
@@ -588,7 +588,9 @@ mod tests {
             ..Default::default()
         };
         let polyp_meta = crate::polyp::PolypSpawnMeta { seed: 999 };
-        let cap_limit = CaptureLimit { max_frames: Some(5) };
+        let cap_limit = CaptureLimit {
+            max_frames: Some(5),
+        };
 
         init_run_dirs(&mut state, &config, &polyp_meta, &cap_limit);
 
@@ -599,7 +601,8 @@ mod tests {
         assert!(state.session_dir.join(OVERLAYS_DIR).is_dir());
 
         let manifest_path = state.session_dir.join("run_manifest.json");
-        let manifest: Value = serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+        let manifest: Value =
+            serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
         assert_eq!(manifest["seed"], 999);
         assert_eq!(manifest["max_frames"], 5);
         assert!(manifest["started_at_unix"].as_f64().unwrap() > 0.0);
@@ -649,7 +652,11 @@ pub fn record_front_camera_metadata(
     };
     // Prefer the capture camera (renders the PNGs) for projection to keep boxes aligned.
     let (cam, cam_tf, viewport) = if let Ok((cap_cam, cap_tf)) = capture_cams.single() {
-        (cap_cam, cap_tf, Vec2::new(capture.size.x as f32, capture.size.y as f32))
+        (
+            cap_cam,
+            cap_tf,
+            Vec2::new(capture.size.x as f32, capture.size.y as f32),
+        )
     } else if let Ok((cam, tf)) = cams.single() {
         let Some(vp) = cam.logical_viewport_size() else {
             return;

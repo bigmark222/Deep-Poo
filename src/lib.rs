@@ -1,47 +1,48 @@
-pub mod camera;
+pub mod autopilot;
 pub mod balloon_control;
+#[cfg(feature = "burn_runtime")]
+pub mod burn_model;
+pub mod camera;
+pub mod cli;
 pub mod controls;
 pub mod hud;
-pub mod autopilot;
 pub mod polyp;
 pub mod probe;
-pub mod tunnel;
-pub mod vision;
-pub mod cli;
-pub mod vision_interfaces;
 pub mod seed;
 pub mod tools;
+pub mod tunnel;
+pub mod vision;
+pub mod vision_interfaces;
 
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 const RAPIER_DEBUG_WIREFRAMES: bool = true;
 
-use balloon_control::{
-    balloon_body_update, balloon_control_input, balloon_marker_update, spawn_balloon_body,
-    spawn_balloon_marker, BalloonControl,
-};
 use autopilot::{
-    auto_inchworm, auto_toggle, data_run_toggle, datagen_autostart, AutoDrive, DataRun, DatagenInit,
+    AutoDrive, DataRun, DatagenInit, auto_inchworm, auto_toggle, data_run_toggle, datagen_autostart,
 };
-use camera::{camera_controller, pov_toggle_system, setup_camera, PovState};
-use controls::{control_inputs_and_apply, ControlParams};
+use balloon_control::{
+    BalloonControl, balloon_body_update, balloon_control_input, balloon_marker_update,
+    spawn_balloon_body, spawn_balloon_marker,
+};
+use camera::{PovState, camera_controller, pov_toggle_system, setup_camera};
+use controls::{ControlParams, control_inputs_and_apply};
 use hud::{spawn_controls_ui, update_controls_ui};
 use polyp::{
+    PolypDetectionVotes, PolypRandom, PolypRemoval, PolypSpawnMeta, PolypTelemetry,
     apply_detection_votes, polyp_detection_system, polyp_removal_system, spawn_polyps,
-    PolypDetectionVotes, PolypRemoval, PolypRandom, PolypSpawnMeta, PolypTelemetry,
 };
-use seed::{resolve_seed, SeedState};
-use probe::{distributed_thrust, peristaltic_drive, spawn_probe, StretchState, TipSense};
-use tunnel::{setup_tunnel, tunnel_expansion_system, cecum_detection, start_detection, CecumState};
+use probe::{StretchState, TipSense, distributed_thrust, peristaltic_drive, spawn_probe};
+use seed::{SeedState, resolve_seed};
+use tunnel::{CecumState, cecum_detection, setup_tunnel, start_detection, tunnel_expansion_system};
 use vision::{
+    AutoRecordTimer, BurnDetector, BurnInferenceState, DetectorHandle, FrontCameraFrameBuffer,
+    FrontCameraState, FrontCaptureReadback, RecorderConfig, RecorderMotion, RecorderState,
     auto_start_recording, auto_stop_recording_on_cecum, capture_front_camera_frame,
-    on_front_capture_readback, poll_burn_inference, record_front_camera_metadata,
-    recorder_toggle_hotkey, schedule_burn_inference, setup_front_capture, finalize_datagen_run,
-    datagen_failsafe_recording,
-    track_front_camera_state, AutoRecordTimer, BurnDetector, BurnInferenceState,
-    FrontCameraFrameBuffer, FrontCaptureReadback, FrontCameraState, RecorderConfig, RecorderState,
-    RecorderMotion, DetectorHandle,
+    datagen_failsafe_recording, finalize_datagen_run, on_front_capture_readback,
+    poll_burn_inference, record_front_camera_metadata, recorder_toggle_hotkey,
+    schedule_burn_inference, setup_front_capture, track_front_camera_state,
 };
 
 pub fn run_app(args: crate::cli::AppArgs) {

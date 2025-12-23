@@ -31,7 +31,11 @@ fn overlay_generation_respects_schema_and_writes_files() {
             { "center_world": [0.0, 0.0, 0.0], "bbox_px": [0.0, 0.0, 2.0, 2.0], "bbox_norm": [0.0, 0.0, 0.0, 0.0] }
         ]
     });
-    fs::write(labels_dir.join("frame_00000.json"), serde_json::to_string_pretty(&meta).unwrap()).unwrap();
+    fs::write(
+        labels_dir.join("frame_00000.json"),
+        serde_json::to_string_pretty(&meta).unwrap(),
+    )
+    .unwrap();
 
     // Generate overlays and confirm output exists.
     generate_overlays(run_dir, "labels", "overlays");

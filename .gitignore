@@ -6,5 +6,7 @@
 checklist.md
 docs/burn_architecture.md
 docs/ml_refactor_plan.md
+docs/burn_dataset.md
 assets/datasets/
 media/
+ml_pipeline.md

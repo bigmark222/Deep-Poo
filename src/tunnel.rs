@@ -2,10 +2,10 @@ use bevy::color::Mix;
 use bevy::math::primitives::Cylinder;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 
-use crate::probe::{ProbeHead, CapsuleProbe};
 use crate::balloon_control::BalloonControl;
+use crate::probe::{CapsuleProbe, ProbeHead};
 
 pub const TUNNEL_START_Z: f32 = -20.0;
 pub const TUNNEL_LENGTH: f32 = 108.0;
@@ -152,7 +152,11 @@ fn ring_shell_collider(radius: f32, half_height: f32) -> Collider {
         let dir = Vec2::new(angle.cos(), angle.sin());
         let center = Vec3::new(dir.x * radius, dir.y * radius, 0.0);
         let rot = Quat::from_rotation_z(angle);
-        shapes.push((center, rot, Collider::cuboid(wall_half, tangent_half, half_height)));
+        shapes.push((
+            center,
+            rot,
+            Collider::cuboid(wall_half, tangent_half, half_height),
+        ));
     }
 
     Collider::compound(shapes)
@@ -191,41 +195,42 @@ pub fn setup_tunnel(
         let (center, tangent) = tunnel_centerline(z);
         let ring_rotation = tunnel_tangent_rotation(tangent);
 
-        commands.spawn((
-            TunnelRing {
-                base_radius,
-                contracted_radius,
-                current_radius: base_radius,
-                half_height,
-            },
-            Transform {
-                translation: center,
-                rotation: ring_rotation,
-                ..default()
-            },
-            GlobalTransform::default(),
-            Visibility::default(),
-            ring_shell_collider(base_radius, half_height),
-            Friction {
-                coefficient: wall_friction,
-                combine_rule: CoefficientCombineRule::Average,
-                ..default()
-            },
-            RigidBody::Fixed,
-        ))
-        .with_children(|child| {
-            child.spawn((
-                TunnelRingVisual,
-                Mesh3d(ring_mesh.clone()),
-                MeshMaterial3d(mat.clone()),
+        commands
+            .spawn((
+                TunnelRing {
+                    base_radius,
+                    contracted_radius,
+                    current_radius: base_radius,
+                    half_height,
+                },
                 Transform {
-                    rotation: Quat::from_rotation_x(std::f32::consts::FRAC_PI_2),
+                    translation: center,
+                    rotation: ring_rotation,
                     ..default()
                 },
                 GlobalTransform::default(),
                 Visibility::default(),
-            ));
-        });
+                ring_shell_collider(base_radius, half_height),
+                Friction {
+                    coefficient: wall_friction,
+                    combine_rule: CoefficientCombineRule::Average,
+                    ..default()
+                },
+                RigidBody::Fixed,
+            ))
+            .with_children(|child| {
+                child.spawn((
+                    TunnelRingVisual,
+                    Mesh3d(ring_mesh.clone()),
+                    MeshMaterial3d(mat.clone()),
+                    Transform {
+                        rotation: Quat::from_rotation_x(std::f32::consts::FRAC_PI_2),
+                        ..default()
+                    },
+                    GlobalTransform::default(),
+                    Visibility::default(),
+                ));
+            });
     }
 
     // Cecum marker at tunnel end to confirm arrival.

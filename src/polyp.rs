@@ -6,10 +6,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::probe::{ProbeHead, PROBE_BASE_LENGTH, PROBE_START_TAIL_Z};
+use crate::probe::{PROBE_BASE_LENGTH, PROBE_START_TAIL_Z, ProbeHead};
 use crate::tunnel::{
-    advance_centerline, tunnel_tangent_rotation, wall_base_color, TUNNEL_BASE_RADIUS, TUNNEL_LENGTH,
-    TUNNEL_START_Z,
+    TUNNEL_BASE_RADIUS, TUNNEL_LENGTH, TUNNEL_START_Z, advance_centerline, tunnel_tangent_rotation,
+    wall_base_color,
 };
 
 #[derive(Component)]
@@ -395,7 +395,8 @@ pub fn polyp_detection_system(
             } else {
                 mat.base_color = polyp.base_color;
                 let bc = polyp.base_color.to_srgba();
-                mat.emissive = Color::srgba(bc.red * 0.7, bc.green * 0.25, bc.blue * 0.7, bc.alpha).into();
+                mat.emissive =
+                    Color::srgba(bc.red * 0.7, bc.green * 0.25, bc.blue * 0.7, bc.alpha).into();
             }
         }
     }

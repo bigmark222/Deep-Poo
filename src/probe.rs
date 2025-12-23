@@ -1,14 +1,14 @@
+use bevy::camera::RenderTarget;
 use bevy::math::primitives::Cylinder;
 use bevy::prelude::*;
-use bevy::camera::RenderTarget;
-use bevy_rapier3d::prelude::*;
 use bevy_rapier3d::plugin::ReadRapierContext;
+use bevy_rapier3d::prelude::*;
 use std::f32::consts::FRAC_PI_2;
 
+use crate::autopilot::AutoDrive;
+use crate::balloon_control::BalloonControl;
 use crate::camera::ProbePovCamera;
 use crate::controls::ControlParams;
-use crate::balloon_control::BalloonControl;
-use crate::autopilot::AutoDrive;
 use crate::polyp::{PolypRemoval, PolypTelemetry};
 use crate::tunnel::{advance_centerline, tunnel_centerline, tunnel_tangent_rotation};
 use crate::vision::{FrontCamera, FrontCaptureCamera, FrontCaptureTarget};
@@ -89,7 +89,11 @@ fn ring_shell_collider(radius: f32, half_height: f32) -> Collider {
         let dir = Vec2::new(angle.cos(), angle.sin());
         let center = Vec3::new(dir.x * radius, dir.y * radius, 0.0);
         let rot = Quat::from_rotation_z(angle);
-        shapes.push((center, rot, Collider::cuboid(wall_half, tangent_half, half_height)));
+        shapes.push((
+            center,
+            rot,
+            Collider::cuboid(wall_half, tangent_half, half_height),
+        ));
     }
 
     Collider::compound(shapes)
@@ -215,7 +219,8 @@ pub fn spawn_probe(
 
         // Body rings for collision hull.
         for i in 0..=ring_count {
-            let (ring_center, ring_tangent, _) = advance_centerline(tail_z, i as f32 * ring_spacing);
+            let (ring_center, ring_tangent, _) =
+                advance_centerline(tail_z, i as f32 * ring_spacing);
             child.spawn((
                 ProbeRing { index: i },
                 ring_shell_collider(base_radius, ring_half_height),
@@ -247,7 +252,8 @@ pub fn spawn_probe(
                 MeshMaterial3d(material_handle.clone()),
                 Transform {
                     translation: seg_center - tail_center,
-                    rotation: tunnel_tangent_rotation(seg_tangent) * Quat::from_rotation_x(FRAC_PI_2),
+                    rotation: tunnel_tangent_rotation(seg_tangent)
+                        * Quat::from_rotation_x(FRAC_PI_2),
                     scale: Vec3::new(1.0, length_scale, 1.0),
                 },
                 GlobalTransform::default(),
@@ -271,7 +277,14 @@ pub fn peristaltic_drive(
     mut stretch: ResMut<StretchState>,
     mut tail_body: Query<(&ProbeBody, Entity, &mut RigidBody, &mut ProbeParam), With<CapsuleProbe>>,
     front_rings: Query<(Entity, &ProbeRing, &GlobalTransform)>,
-    mut body_tf_q: Query<&mut Transform, (With<CapsuleProbe>, Without<ProbePovCamera>, Without<ProbeHead>)>,
+    mut body_tf_q: Query<
+        &mut Transform,
+        (
+            With<CapsuleProbe>,
+            Without<ProbePovCamera>,
+            Without<ProbeHead>,
+        ),
+    >,
     mut transforms: ParamSet<(
         Query<
             &mut Transform,
@@ -344,8 +357,8 @@ pub fn peristaltic_drive(
         && !balloon.tail_inflated
         && (keys.pressed(KeyCode::ArrowUp) || keys.pressed(KeyCode::KeyI));
     let extend_command = manual_extend_forward || manual_extend_reverse;
-    let retract_command = !interlocked
-        && (keys.pressed(KeyCode::ArrowDown) || keys.pressed(KeyCode::KeyK));
+    let retract_command =
+        !interlocked && (keys.pressed(KeyCode::ArrowDown) || keys.pressed(KeyCode::KeyK));
 
     let dt = time.delta_secs();
     // Pause manual length changes while removing a polyp or when very close to a target.
@@ -361,7 +374,6 @@ pub fn peristaltic_drive(
     } else {
         1.0
     };
-
 
     if (extend_command || auto.enabled && auto.extend) && !autopause {
         stretch.factor = (stretch.factor + STRETCH_RATE * dt * slow_factor).min(MAX_STRETCH);
@@ -382,8 +394,7 @@ pub fn peristaltic_drive(
     // If the head is anchored, slide the tail forward/back along the curve to keep head world position fixed.
     if let Some(anchor_pos) = head_anchor_pos {
         let max_z = crate::tunnel::TUNNEL_START_Z + crate::tunnel::TUNNEL_LENGTH;
-        let mut low = (anchor_pos.z - length - 5.0)
-            .clamp(crate::tunnel::TUNNEL_START_Z, max_z);
+        let mut low = (anchor_pos.z - length - 5.0).clamp(crate::tunnel::TUNNEL_START_Z, max_z);
         let mut high = (anchor_pos.z + 5.0).clamp(crate::tunnel::TUNNEL_START_Z, max_z);
         let head_at = |tail_z: f32| advance_centerline(tail_z, length).0;
         for _ in 0..18 {
@@ -473,7 +484,11 @@ pub fn peristaltic_drive(
     let max_delta = 1.5 * dt;
     let blend_delta = (target_blend - prev_blend).clamp(-max_delta, max_delta);
     let smoothed_blend = (prev_blend + blend_delta).clamp(0.0, 0.35);
-    let steering_blend = if balloon.head_inflated { 0.0 } else { smoothed_blend };
+    let steering_blend = if balloon.head_inflated {
+        0.0
+    } else {
+        smoothed_blend
+    };
     let steered_head = if steering_blend > 0.0 {
         head_tangent
             .lerp(steering_dir, steering_blend)
@@ -497,7 +512,8 @@ pub fn peristaltic_drive(
 
     // Keep the POV camera oriented down the tunnel centerline ahead of the tip.
     if let Ok(mut cam_tf) = transforms.p4().single_mut() {
-        let max_arc = (crate::tunnel::TUNNEL_START_Z + crate::tunnel::TUNNEL_LENGTH - params.tail_z)
+        let max_arc = (crate::tunnel::TUNNEL_START_Z + crate::tunnel::TUNNEL_LENGTH
+            - params.tail_z)
             .max(length);
         let look_ahead = 0.5;
         let look_arc = (length + look_ahead).min(max_arc);
@@ -525,8 +541,7 @@ pub fn peristaltic_drive(
             tangent
         };
         vis_tf.translation = center - tail_center;
-        vis_tf.rotation =
-            tunnel_tangent_rotation(forward) * Quat::from_rotation_x(FRAC_PI_2);
+        vis_tf.rotation = tunnel_tangent_rotation(forward) * Quat::from_rotation_x(FRAC_PI_2);
         vis_tf.scale = Vec3::new(1.0, spacing / body.base_length, 1.0);
     }
 

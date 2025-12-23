@@ -52,3 +52,6 @@ cargo run --release
 
 ## License
 This project is licensed under the GNU Affero General Public License v3.0. See `LICENSE` for full terms. For commercial licensing options, see `COMMERCIAL_LICENSE.md`.
+
+## Burn dataset loader
+See `docs/burn_dataset.md` for how to load capture runs, split train/val, and build Burn-ready batches with letterboxing and padded boxes.

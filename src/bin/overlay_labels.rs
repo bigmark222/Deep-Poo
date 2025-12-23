@@ -25,9 +25,7 @@ struct CaptureMetadata {
 
 fn draw_rect(img: &mut RgbaImage, bbox: [f32; 4], color: Rgba<u8>, thickness: u32) {
     let (w, h) = img.dimensions();
-    let clamp = |v: f32, max: u32| -> u32 {
-        v.max(0.0).min((max as i32 - 1) as f32) as u32
-    };
+    let clamp = |v: f32, max: u32| -> u32 { v.max(0.0).min((max as i32 - 1) as f32) as u32 };
     let x0 = clamp(bbox[0], w);
     let y0 = clamp(bbox[1], h);
     let x1 = clamp(bbox[2], w);

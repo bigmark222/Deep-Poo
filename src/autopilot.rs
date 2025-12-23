@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
 use crate::balloon_control::BalloonControl;
+use crate::camera::{Flycam, PovState, ProbePovCamera};
 use crate::cli::RunMode;
 use crate::polyp::PolypRemoval;
-use crate::probe::StretchState;
 use crate::probe::ProbeHead;
+use crate::probe::StretchState;
 use crate::tunnel::{CecumState, TUNNEL_LENGTH, TUNNEL_START_Z};
-use crate::camera::{Flycam, PovState, ProbePovCamera};
 use crate::vision::{AutoRecordTimer, RecorderState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,7 +53,6 @@ impl Default for AutoDrive {
         }
     }
 }
-
 
 pub fn auto_toggle(keys: Res<ButtonInput<KeyCode>>, mut auto: ResMut<AutoDrive>) {
     if keys.just_pressed(KeyCode::KeyP) {

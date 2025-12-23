@@ -31,6 +31,10 @@ image = { version = "0.24", default-features = false, features = ["png", "rayon"
 rand = "0.8"
 clap = { version = "4.5", features = ["derive"] }
 burn = { version = "0.14", optional = true }
+anyhow = "1.0"
 
 [dev-dependencies]
 tempfile = "3.10"
+
+[patch.crates-io]
+burn-core = { path = "vendor/burn-core-0.14.0" }

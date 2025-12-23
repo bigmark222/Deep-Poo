@@ -1904,8 +1904,6 @@ dependencies = [
 [[package]]
 name = "burn-core"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eff2c75e814e84fb7c8046f7b37c9f289a08680e10a67fde515412abffbba982"
 dependencies = [
  "bincode",
  "burn-autodiff",
@@ -2364,6 +2362,7 @@ dependencies = [
 name = "colon_sim"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bevy",
  "bevy_mesh",
  "bevy_rapier3d",

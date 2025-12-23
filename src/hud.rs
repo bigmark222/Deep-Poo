@@ -5,8 +5,8 @@ use bevy::ui::{
 };
 
 use crate::controls::ControlParams;
-use crate::probe::TipSense;
 use crate::polyp::PolypTelemetry;
+use crate::probe::TipSense;
 use crate::vision::{BurnInferenceState, FrontCameraState, RecorderState};
 
 #[derive(Component)]
