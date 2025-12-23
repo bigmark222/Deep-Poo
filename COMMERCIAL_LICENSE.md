@@ -4,4 +4,6 @@ This project is licensed under AGPLv3. The implementation is a reduced, simulati
 
 **No patent license is granted under this notice.** Any commercial use that practices patented methods or claims requires a separate license from the patent holder. The commercial license for this repository only covers the project’s source code and original supervisory/control logic.
 
-If your organization wishes to use this software without the obligations of the AGPL (such as releasing source code), or needs rights to practice any relevant patents, commercial licenses are available. Please contact: `<your-contact@domain>` for inquiries.
+If your organization wishes to use this software without the obligations of the AGPL (such as releasing source code), commercial licenses are available from Via Balaena for the domain-agnostic automated control logic and the Burn-based reinforcement/vision data collection, training, and implementation system.
+
+Use of any Endotics patents or hardware is outside the scope of this repository and its commercial license. If your intended use would practice Endotics-patented methods or require Endotics hardware, you must obtain permission or licensing directly from Endotics.
