@@ -1,7 +1,11 @@
 #[cfg(feature = "burn_runtime")]
 mod real {
     use anyhow::Result;
-    use burn::backend::{ndarray::NdArray, Autodiff};
+    use burn::backend::Autodiff;
+    #[cfg(feature = "burn_wgpu")]
+    use burn_wgpu::Wgpu;
+    #[cfg(not(feature = "burn_wgpu"))]
+    use burn::backend::ndarray::NdArray;
     use burn::module::Module;
     use burn::record::{BinFileRecorder, FullPrecisionSettings};
     use clap::Parser;
@@ -38,6 +42,9 @@ mod real {
         metrics_out: Option<String>,
     }
 
+    #[cfg(feature = "burn_wgpu")]
+    type Backend = Wgpu<f32>;
+    #[cfg(not(feature = "burn_wgpu"))]
     type Backend = NdArray<f32>;
     type ADBackend = Autodiff<Backend>;
 
@@ -316,7 +323,7 @@ mod real {
             preds.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
             let mut boxes_only: Vec<[f32; 4]> = preds.iter().map(|p| p.1).collect();
             let scores_only: Vec<f32> = preds.iter().map(|p| p.0).collect();
-            let keep = nms(boxes_only.clone(), scores_only, iou_thresh);
+            let keep = nms(&boxes_only, &scores_only, iou_thresh);
             boxes_only = keep.iter().map(|&i| boxes_only[i]).collect();
 
             if gt.is_empty() || boxes_only.is_empty() {

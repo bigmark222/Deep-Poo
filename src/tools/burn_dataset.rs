@@ -1,7 +1,5 @@
 use image::imageops::FilterType;
-use rand::{seq::SliceRandom, Rng};
-#[cfg(feature = "burn_runtime")]
-use rand::SeedableRng;
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 use serde::Deserialize;
 use std::cmp::max;
 use std::error::Error;

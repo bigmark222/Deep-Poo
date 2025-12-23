@@ -14,6 +14,11 @@ The simulator includes a Clap-based CLI to control run mode, seeding, outputs, a
 - `datagen_headless`: headless data-gen runner.
 - `overlay_labels`: draw bounding boxes onto captured frames.
 
+### Runtime hotkeys (vision)
+- `-`/`=`: decrease/increase objectness threshold.
+- `[`/`]`: decrease/increase IoU threshold.
+- `B`: toggle between Burn and heuristic detectors; HUD shows the active mode/box stats.
+
 ## Examples
 - Interactive sim (visible):
   ```bash

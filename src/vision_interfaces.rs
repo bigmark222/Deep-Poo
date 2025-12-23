@@ -27,6 +27,8 @@ pub struct DetectionResult {
     pub confidence: f32,
     /// Normalized boxes [x0,y0,x1,y1] in 0..1.
     pub boxes: Vec<[f32; 4]>,
+    /// Per-box scores aligned with `boxes`.
+    pub scores: Vec<f32>,
 }
 
 /// Polyp label metadata for a frame.
@@ -54,6 +56,8 @@ pub trait FrameSource {
 /// Runs inference on a frame.
 pub trait Detector {
     fn detect(&mut self, frame: &Frame) -> DetectionResult;
+    /// Optional: adjust thresholds at runtime.
+    fn set_thresholds(&mut self, _obj: f32, _iou: f32) {}
 }
 
 /// Persists frames/metadata to a sink (disk, stream, etc).

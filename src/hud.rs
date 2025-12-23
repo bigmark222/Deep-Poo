@@ -7,7 +7,9 @@ use bevy::ui::{
 use crate::controls::ControlParams;
 use crate::polyp::PolypTelemetry;
 use crate::probe::TipSense;
-use crate::vision::{BurnInferenceState, DetectionOverlayState, FrontCameraState, RecorderState};
+use crate::vision::{
+    BurnInferenceState, DetectionOverlayState, DetectorHandle, FrontCameraState, RecorderState,
+};
 
 #[derive(Component)]
 pub struct ControlText;
@@ -15,6 +17,10 @@ pub struct ControlText;
 pub struct DetectionOverlayRoot;
 #[derive(Component)]
 pub struct DetectionBoxUI;
+#[derive(Component)]
+pub struct DetectionLabelUI;
+#[derive(Component)]
+pub struct FallbackBanner;
 
 pub fn spawn_controls_ui(mut commands: Commands) {
     let bg = Color::srgba(0.04, 0.08, 0.14, 0.82);
@@ -177,19 +183,27 @@ pub fn update_detection_overlay_ui(
     overlay: Res<DetectionOverlayState>,
     root_q: Query<Entity, With<DetectionOverlayRoot>>,
     boxes_q: Query<Entity, With<DetectionBoxUI>>,
+    labels_q: Query<Entity, With<DetectionLabelUI>>,
+    mut fallback_q: Query<(&mut Node, &mut Text), With<FallbackBanner>>,
 ) {
     if overlay.is_changed() {
         for e in boxes_q.iter() {
             commands.entity(e).despawn();
         }
+        for e in labels_q.iter() {
+            commands.entity(e).despawn();
+        }
         let Some(root) = root_q.iter().next() else {
             return;
         };
-        for b in overlay.boxes.iter() {
+        let mut boxes = overlay.boxes.iter().zip(overlay.scores.iter().cloned()).collect::<Vec<_>>();
+        boxes.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        for (b, score) in boxes {
             let w = (b[2] - b[0]).clamp(0.0, 1.0) * 100.0;
             let h = (b[3] - b[1]).clamp(0.0, 1.0) * 100.0;
+            let color = Color::srgba(0.1, 0.8, 1.0, 0.9 * score.clamp(0.25, 1.0));
             commands.entity(root).with_children(|parent| {
-                parent.spawn((
+                let _ = parent.spawn((
                     Node {
                         position_type: PositionType::Absolute,
                         left: Val::Percent((b[0] * 100.0).clamp(0.0, 100.0)),
@@ -199,11 +213,39 @@ pub fn update_detection_overlay_ui(
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
-                    BorderColor::all(Color::srgba(0.1, 0.9, 1.0, 0.85)),
+                    BorderColor::all(color),
                     BackgroundColor(Color::srgba(0.1, 0.7, 1.0, 0.08)),
                     DetectionBoxUI,
+                )).id();
+                // label
+                parent.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Percent((b[0] * 100.0).clamp(0.0, 100.0)),
+                        top: Val::Percent(((b[1] * 100.0) - 2.0).clamp(0.0, 100.0)),
+                        ..default()
+                    },
+                    Text::new(format!("polyp {:.2}", score)),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgba(0.95, 0.98, 1.0, 0.95)),
+                    DetectionLabelUI,
                 ));
             });
+        }
+
+        if let Some((mut node, mut text)) = fallback_q.iter_mut().next() {
+            match overlay.fallback.as_ref() {
+                Some(msg) => {
+                    node.display = Display::Flex;
+                    *text = Text::new(msg.clone());
+                }
+                None => {
+                    node.display = Display::None;
+                }
+            }
         }
     }
 }
@@ -221,6 +263,26 @@ pub fn spawn_detection_overlay(mut commands: Commands) {
         BackgroundColor(Color::NONE),
         DetectionOverlayRoot,
     ));
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            right: Val::Px(10.0),
+            padding: UiRect::axes(Val::Px(8.0), Val::Px(6.0)),
+            display: Display::None,
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.12, 0.04, 0.04, 0.82)),
+        BorderColor::all(Color::srgba(0.8, 0.2, 0.2, 0.9)),
+        BorderRadius::all(Val::Px(6.0)),
+        Text::new(""),
+        TextFont {
+            font_size: 14.0,
+            ..default()
+        },
+        TextColor(Color::srgba(1.0, 0.9, 0.9, 0.95)),
+        FallbackBanner,
+    ));
 }
 
 pub fn update_controls_ui(
@@ -229,6 +291,8 @@ pub fn update_controls_ui(
     polyps: Res<PolypTelemetry>,
     front_cam: Res<FrontCameraState>,
     burn: Res<BurnInferenceState>,
+    overlay: Res<DetectionOverlayState>,
+    handle: Res<DetectorHandle>,
     recorder: Res<RecorderState>,
     ui: Single<Entity, (With<ControlText>, With<Text>)>,
     mut writer: TextUiWriter,
@@ -268,11 +332,36 @@ pub fn update_controls_ui(
             .last_result
             .as_ref()
             .map(|r| {
-                let boxes = r.boxes.len();
+                let boxes = overlay.boxes.len();
+                let max_score = overlay
+                    .scores
+                    .iter()
+                    .cloned()
+                    .fold(0.0_f32, f32::max);
+                let latency = overlay
+                    .inference_ms
+                    .map(|ms| format!(" ; {:.1} ms", ms))
+                    .unwrap_or_default();
+                let kind = match handle.kind {
+                    #[cfg(feature = "burn_runtime")]
+                    crate::vision::DetectorKind::Burn => "BURN",
+                    _ => "HEUR",
+                };
                 if r.positive {
-                    format!("ON ({:.0}% ; {} boxes)", r.confidence * 100.0, boxes)
+                    if boxes > 0 {
+                        format!(
+                            "{} ON ({:.0}% ; {} boxes max {:.2}{})",
+                            kind,
+                            r.confidence * 100.0,
+                            boxes,
+                            max_score,
+                            latency
+                        )
+                    } else {
+                        format!("{} ON ({:.0}% ; 0 boxes{})", kind, r.confidence * 100.0, latency)
+                    }
                 } else {
-                    format!("off ({:.0}% ; {} boxes)", r.confidence * 100.0, boxes)
+                    format!("{} off ({:.0}% ; {} boxes{})", kind, r.confidence * 100.0, boxes, latency)
                 }
             })
             .unwrap_or_else(|| "--".to_string());

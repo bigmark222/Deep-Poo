@@ -226,18 +226,29 @@ pub fn assign_targets_to_grid(
 }
 
 /// Simple NMS over boxes `[x0,y0,x1,y1]` with scores.
-pub fn nms(mut boxes: Vec<[f32; 4]>, mut scores: Vec<f32>, iou_thresh: f32) -> Vec<usize> {
+pub fn nms(boxes: &[[f32; 4]], scores: &[f32], iou_thresh: f32) -> Vec<usize> {
     let mut idxs: Vec<usize> = (0..boxes.len()).collect();
-    idxs.sort_by(|a, b| {
-        scores[*b]
-            .partial_cmp(&scores[*a])
+    idxs.sort_unstable_by(|&a, &b| {
+        scores[b]
+            .partial_cmp(&scores[a])
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    let mut keep = Vec::new();
-    while let Some(i) = idxs.pop() {
+    let mut keep = Vec::with_capacity(boxes.len());
+    let mut suppressed = vec![false; boxes.len()];
+    for (pos, &i) in idxs.iter().enumerate() {
+        if suppressed[i] {
+            continue;
+        }
         keep.push(i);
-        idxs.retain(|&j| iou(&boxes[i], &boxes[j]) <= iou_thresh);
+        for &j in idxs.iter().skip(pos + 1) {
+            if suppressed[j] {
+                continue;
+            }
+            if iou(&boxes[i], &boxes[j]) > iou_thresh {
+                suppressed[j] = true;
+            }
+        }
     }
     keep
 }

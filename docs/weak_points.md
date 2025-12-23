@@ -21,6 +21,20 @@
   - Persist val metrics per epoch (JSON/CSV) for tracking. ✅ (`--metrics-out` JSONL)
   - Add an eval-only command to score a checkpoint on a dataset without training. ✅ (`bin/eval`)
 - Runtime UX: HUD overlays are basic; thresholds require flags (no live toggle); heuristic fallback only logged.
+  - Improve HUD: draw boxes with score labels/counts and better styling. ✅
+  - Live threshold controls: add runtime UI/keys to adjust obj/IoU thresholds (not just CLI). ✅ (keys -/= for obj, [/] for IoU; HUD shows updates)
+  - Detector toggle: runtime switch between Burn and heuristic detectors with on-screen indicator. ✅ (key `B`, HUD shows mode)
+  - Fallback messaging: visible HUD banner/toast when Burn model missing/fails (in addition to logs). ✅
 - Performance: CPU NdArray backend and CPU NMS; no batching/GPU path, potential real-time bottleneck.
+  - Add a GPU-backed Burn backend (e.g., tch/wgpu) and use it when available for train/inference. ✅ (wgpu backend behind `burn_wgpu`)
+  - Optimize NMS (SIMD/parallel or GPU) and reduce clones/allocs. ✅ (in-place indices, no per-call clones)
+  - Support batch > 1 via target assignment/loader to improve throughput. ✅ (multi-image target build; batch_size flag enabled)
+  - Add a simple timing overlay/log for inference/frame processing. ✅ (HUD shows inference ms)
 - Testing gaps: no end-to-end inference test in the sim; no HUD overlay tests; Burn training harness lacks a sanity test beyond a single-batch run.
+  - Add an end-to-end sim inference test that drives a few frames and asserts detections/HUD updates. ✅ (tests/vision_inference.rs)
+  - Add HUD overlay UI snapshot/logic tests (boxes, scores, fallback banner). ✅ (tests/hud_overlay.rs)
+  - Add a Burn training harness sanity test (multi-step, batch>1) under `burn_runtime` to catch API drift. ✅ (tests/train_harness.rs)
 - Docs: training doc lacks full workflow (data prep, expected outputs, sample checkpoint); deployment guidance for Burn model is minimal.
+  - Expand `training.md` with an end-to-end workflow: data prep (capture/prune), expected outputs/artifacts, and a sample command. ✅
+  - Document how to obtain/use a sample checkpoint (download path or bundled file) and how to load it via CLI flag.
+  - Add deployment guidance: where to place the Burn checkpoint for runtime, how to toggle detectors, and inference threshold knobs.

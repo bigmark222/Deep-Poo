@@ -2368,6 +2368,7 @@ dependencies = [
  "bevy_rapier3d",
  "burn",
  "burn-ndarray",
+ "burn-wgpu",
  "clap",
  "futures-lite",
  "image 0.24.9",

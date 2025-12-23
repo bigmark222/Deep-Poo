@@ -5,7 +5,11 @@ mod real {
     use std::path::Path;
 
     use anyhow::Result;
-    use burn::backend::{autodiff::Autodiff, ndarray::NdArray};
+    use burn::backend::autodiff::Autodiff;
+    #[cfg(feature = "burn_wgpu")]
+    use burn_wgpu::Wgpu;
+    #[cfg(not(feature = "burn_wgpu"))]
+    use burn::backend::ndarray::NdArray;
     use burn::lr_scheduler::{
         cosine::{CosineAnnealingLrScheduler, CosineAnnealingLrSchedulerConfig},
         linear::{LinearLrScheduler, LinearLrSchedulerConfig},
@@ -97,6 +101,9 @@ mod real {
         metrics_out: Option<String>,
     }
 
+    #[cfg(feature = "burn_wgpu")]
+    type Backend = Wgpu<f32>;
+    #[cfg(not(feature = "burn_wgpu"))]
     type Backend = NdArray<f32>;
     type ADBackend = Autodiff<Backend>;
     type Optim = OptimizerAdaptor<
@@ -116,12 +123,7 @@ mod real {
         let device = <ADBackend as burn::tensor::backend::Backend>::Device::default();
         let effective_seed = args.seed.or(Some(42));
         println!("Using seed {:?}", effective_seed);
-        let batch_size = if args.batch_size > 1 {
-            println!("Batch size >1 not yet supported for target assignment; forcing batch_size=1");
-            1
-        } else {
-            args.batch_size.max(1)
-        };
+        let batch_size = args.batch_size.max(1);
         let cfg = DatasetConfig {
             target_size: Some((128, 128)),
             flip_horizontal_prob: 0.5,
@@ -536,7 +538,6 @@ mod real {
         burn::tensor::Tensor<ADBackend, 4>,
         burn::tensor::Tensor<ADBackend, 4>,
     )> {
-        // Supports batch_size = 1 for now.
         let boxes_vec = batch
             .boxes
             .to_data()
@@ -548,27 +549,52 @@ mod real {
             .to_vec::<f32>()
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
 
-        let max_boxes = batch.boxes.dims()[1];
-        let mut valid_boxes = Vec::new();
-        for i in 0..max_boxes {
-            let base = i * 4;
-            if box_mask_vec[i] > 0.0 {
-                valid_boxes.push([
-                    boxes_vec[base],
-                    boxes_vec[base + 1],
-                    boxes_vec[base + 2],
-                    boxes_vec[base + 3],
-                ]);
+        let dims = batch.boxes.dims();
+        let batch_len = dims[0];
+        let max_boxes = dims[1];
+        let hw = grid_h * grid_w;
+
+        let mut obj_all = vec![0.0f32; batch_len * hw];
+        let mut boxes_all = vec![0.0f32; batch_len * 4 * hw];
+        let mut mask_all = vec![0.0f32; batch_len * 4 * hw];
+
+        for b in 0..batch_len {
+            let mut valid_boxes = Vec::new();
+            for i in 0..max_boxes {
+                let m = box_mask_vec[b * max_boxes + i];
+                if m > 0.0 {
+                    let base = (b * max_boxes + i) * 4;
+                    valid_boxes.push([
+                        boxes_vec[base],
+                        boxes_vec[base + 1],
+                        boxes_vec[base + 2],
+                        boxes_vec[base + 3],
+                    ]);
+                }
+            }
+
+            let (obj, tgt, mask) = assign_targets_to_grid(&valid_boxes, grid_h, grid_w);
+            let obj_dst = &mut obj_all[b * hw..(b + 1) * hw];
+            obj_dst.copy_from_slice(&obj);
+
+            for c in 0..4 {
+                let src = &tgt[c * hw..(c + 1) * hw];
+                let dst = &mut boxes_all[(b * 4 + c) * hw..(b * 4 + c + 1) * hw];
+                dst.copy_from_slice(src);
+
+                let msrc = &mask[c * hw..(c + 1) * hw];
+                let mdst = &mut mask_all[(b * 4 + c) * hw..(b * 4 + c + 1) * hw];
+                mdst.copy_from_slice(msrc);
             }
         }
 
-        let (obj, tgt, mask) = assign_targets_to_grid(&valid_boxes, grid_h, grid_w);
-        let obj_t = burn::tensor::Tensor::<ADBackend, 1>::from_floats(obj.as_slice(), device)
-            .reshape([1, 1, grid_h, grid_w]);
-        let boxes_t = burn::tensor::Tensor::<ADBackend, 1>::from_floats(tgt.as_slice(), device)
-            .reshape([1, 4, grid_h, grid_w]);
-        let mask_t = burn::tensor::Tensor::<ADBackend, 1>::from_floats(mask.as_slice(), device)
-            .reshape([1, 4, grid_h, grid_w]);
+        let obj_t = burn::tensor::Tensor::<ADBackend, 1>::from_floats(obj_all.as_slice(), device)
+            .reshape([batch_len, 1, grid_h, grid_w]);
+        let boxes_t =
+            burn::tensor::Tensor::<ADBackend, 1>::from_floats(boxes_all.as_slice(), device)
+                .reshape([batch_len, 4, grid_h, grid_w]);
+        let mask_t = burn::tensor::Tensor::<ADBackend, 1>::from_floats(mask_all.as_slice(), device)
+            .reshape([batch_len, 4, grid_h, grid_w]);
         Ok((obj_t, boxes_t, mask_t))
     }
 
@@ -839,7 +865,7 @@ mod real {
             preds.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
             let mut boxes_only: Vec<[f32; 4]> = preds.iter().map(|p| p.1).collect();
             let scores_only: Vec<f32> = preds.iter().map(|p| p.0).collect();
-            let keep = nms(boxes_only.clone(), scores_only, iou_thresh);
+            let keep = nms(&boxes_only, &scores_only, iou_thresh);
             boxes_only = keep.iter().map(|&i| boxes_only[i]).collect();
 
             if gt.is_empty() || boxes_only.is_empty() {

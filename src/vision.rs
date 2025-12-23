@@ -20,8 +20,6 @@ use crate::tunnel::CecumState;
 use crate::vision_interfaces::{self, DetectionResult, Frame, FrameRecord, Label, Recorder};
 
 #[cfg(feature = "burn_runtime")]
-use burn::backend::ndarray::NdArray;
-#[cfg(feature = "burn_runtime")]
 use burn::tensor::backend::Backend;
 #[cfg(feature = "burn_runtime")]
 use burn::tensor::Tensor;
@@ -31,6 +29,10 @@ use crate::burn_model::{nms, TinyDet, TinyDetConfig};
 use burn::record::{BinFileRecorder, FullPrecisionSettings};
 #[cfg(feature = "burn_runtime")]
 use burn::module::Module;
+#[cfg(all(feature = "burn_runtime", feature = "burn_wgpu"))]
+use burn_wgpu::Wgpu;
+#[cfg(all(feature = "burn_runtime", not(feature = "burn_wgpu")))]
+use burn::backend::ndarray::NdArray;
 #[cfg(feature = "burn_runtime")]
 use std::sync::{Arc, Mutex};
 
@@ -67,8 +69,22 @@ pub struct BurnDetector {
 #[derive(Resource, Default, Clone)]
 pub struct DetectionOverlayState {
     pub boxes: Vec<[f32; 4]>,
+    pub scores: Vec<f32>,
     pub size: (u32, u32),
+    pub fallback: Option<String>,
+    pub inference_ms: Option<f32>,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Resource)]
+pub enum DetectorKind {
+    Burn,
+    Heuristic,
+}
+
+#[cfg(all(feature = "burn_runtime", feature = "burn_wgpu"))]
+type RuntimeBackend = Wgpu<f32>;
+#[cfg(all(feature = "burn_runtime", not(feature = "burn_wgpu")))]
+type RuntimeBackend = NdArray<f32>;
 
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct InferenceThresholds {
@@ -82,6 +98,7 @@ pub struct BurnDetectionResult {
     pub positive: bool,
     pub confidence: f32,
     pub boxes: Vec<[f32; 4]>,
+    pub scores: Vec<f32>,
 }
 
 struct HeuristicDetector;
@@ -92,6 +109,7 @@ impl vision_interfaces::Detector for HeuristicDetector {
             positive: true,
             confidence: 0.8,
             boxes: Vec::new(),
+            scores: Vec::new(),
         }
     }
 }
@@ -116,6 +134,7 @@ impl Default for BurnInferenceState {
 #[derive(Resource)]
 pub struct DetectorHandle {
     pub detector: Box<dyn vision_interfaces::Detector + Send + Sync>,
+    pub kind: DetectorKind,
 }
 
 impl DetectorHandle {
@@ -126,19 +145,21 @@ impl DetectorHandle {
             if let Some(det) = BurnTinyDetDetector::from_default_or_fallback(thresh) {
                 return Self {
                     detector: Box::new(det),
+                    kind: DetectorKind::Burn,
                 };
             }
         }
         Self {
             detector: Box::new(HeuristicDetector),
+            kind: DetectorKind::Heuristic,
         }
     }
 }
 
 #[cfg(feature = "burn_runtime")]
 struct BurnTinyDetDetector {
-    model: Arc<Mutex<TinyDet<NdArray<f32>>>>,
-    device: <NdArray<f32> as Backend>::Device,
+    model: Arc<Mutex<TinyDet<RuntimeBackend>>>,
+    device: <RuntimeBackend as Backend>::Device,
     obj_thresh: f32,
     iou_thresh: f32,
 }
@@ -146,9 +167,9 @@ struct BurnTinyDetDetector {
 #[cfg(feature = "burn_runtime")]
 impl BurnTinyDetDetector {
     fn load_from_checkpoint(path: &Path, thresh: InferenceThresholds) -> anyhow::Result<Self> {
-        let device = <NdArray<f32> as Backend>::Device::default();
+        let device = <RuntimeBackend as Backend>::Device::default();
         let recorder = BinFileRecorder::<FullPrecisionSettings>::new();
-        let model = TinyDet::<NdArray<f32>>::new(TinyDetConfig::default(), &device)
+        let model = TinyDet::<RuntimeBackend>::new(TinyDetConfig::default(), &device)
             .load_file(path, &recorder, &device)?;
         Ok(Self {
             model: Arc::new(Mutex::new(model)),
@@ -179,7 +200,7 @@ impl BurnTinyDetDetector {
         None
     }
 
-    fn rgba_to_tensor(&self, rgba: &[u8], size: (u32, u32)) -> Tensor<NdArray<f32>, 4> {
+    fn rgba_to_tensor(&self, rgba: &[u8], size: (u32, u32)) -> Tensor<RuntimeBackend, 4> {
         let (w, h) = size;
         let mut data = vec![0.0f32; (w * h * 3) as usize];
         for y in 0..h {
@@ -192,7 +213,7 @@ impl BurnTinyDetDetector {
                 // alpha ignored
             }
         }
-        Tensor::<NdArray<f32>, 4>::from_floats(data.as_slice(), &self.device)
+        Tensor::<RuntimeBackend, 4>::from_floats(data.as_slice(), &self.device)
             .reshape([1, 3, h as usize, w as usize])
     }
 }
@@ -208,6 +229,7 @@ impl vision_interfaces::Detector for BurnTinyDetDetector {
                     positive: false,
                     confidence: 0.0,
                     boxes: Vec::new(),
+                    scores: Vec::new(),
                 }
             }
         };
@@ -221,6 +243,7 @@ impl vision_interfaces::Detector for BurnTinyDetDetector {
                     positive: false,
                     confidence: 0.0,
                     boxes: Vec::new(),
+                    scores: Vec::new(),
                 };
             }
         };
@@ -232,6 +255,7 @@ impl vision_interfaces::Detector for BurnTinyDetDetector {
                     positive: false,
                     confidence: 0.0,
                     boxes: Vec::new(),
+                    scores: Vec::new(),
                 }
             }
         };
@@ -243,6 +267,7 @@ impl vision_interfaces::Detector for BurnTinyDetDetector {
                     positive: false,
                     confidence: 0.0,
                     boxes: Vec::new(),
+                    scores: Vec::new(),
                 }
             }
         };
@@ -253,6 +278,7 @@ impl vision_interfaces::Detector for BurnTinyDetDetector {
                 positive: false,
                 confidence: 0.0,
                 boxes: Vec::new(),
+                scores: Vec::new(),
             };
         }
         let (_b, _c, h, w) = (dims[0], dims[1], dims[2], dims[3]);
@@ -279,12 +305,13 @@ impl vision_interfaces::Detector for BurnTinyDetDetector {
                 positive: false,
                 confidence: 0.0,
                 boxes: Vec::new(),
+                scores: Vec::new(),
             };
         }
         preds.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         let boxes_only: Vec<[f32; 4]> = preds.iter().map(|p| p.1).collect();
         let scores_only: Vec<f32> = preds.iter().map(|p| p.0).collect();
-        let keep = nms(boxes_only.clone(), scores_only, self.iou_thresh);
+        let keep = nms(&boxes_only, &scores_only, self.iou_thresh);
         let best_idx = keep.first().copied().unwrap_or(0);
         let best = preds.get(best_idx).cloned().unwrap_or((0.0, [0.0; 4]));
 
@@ -293,7 +320,13 @@ impl vision_interfaces::Detector for BurnTinyDetDetector {
             positive: best.0 > self.obj_thresh,
             confidence: best.0 as f32,
             boxes: keep.iter().map(|&i| boxes_only[i]).collect(),
+            scores: keep.iter().map(|&i| scores_only[i]).collect(),
         }
+    }
+
+    fn set_thresholds(&mut self, obj: f32, iou: f32) {
+        self.obj_thresh = obj;
+        self.iou_thresh = iou;
     }
 }
 
@@ -513,6 +546,7 @@ pub fn schedule_burn_inference(
     capture: Res<FrontCaptureTarget>,
     mut readback: ResMut<FrontCaptureReadback>,
     mut overlay: ResMut<DetectionOverlayState>,
+    _thresh: Res<InferenceThresholds>,
 ) {
     jobs.debounce.tick(time.delta());
     if jobs.pending.is_some() || !jobs.debounce.is_finished() {
@@ -524,6 +558,7 @@ pub fn schedule_burn_inference(
 
     // Run detection via the vision interface (sync for now).
     let rgba = readback.latest.take();
+    let start = std::time::Instant::now();
     let f = Frame {
         id: frame.id,
         timestamp: frame.captured_at,
@@ -532,20 +567,84 @@ pub fn schedule_burn_inference(
         path: None,
     };
     let result = handle.detector.detect(&f);
-    burn_detector.model_loaded = true;
+    let infer_ms = start.elapsed().as_secs_f32() * 1000.0;
+    burn_detector.model_loaded = handle.kind == DetectorKind::Burn;
+    if handle.kind == DetectorKind::Heuristic {
+        overlay.fallback = Some("Heuristic detector active (Burn unavailable)".into());
+    } else {
+        overlay.fallback = None;
+    }
+    overlay.inference_ms = Some(infer_ms);
     overlay.boxes = result.boxes.clone();
+    overlay.scores = result.scores.clone();
     overlay.size = (capture.size.x, capture.size.y);
     jobs.last_result = Some(BurnDetectionResult {
         frame_id: result.frame_id,
         positive: result.positive,
         confidence: result.confidence,
         boxes: result.boxes,
+        scores: result.scores,
     });
 }
 
 pub fn poll_burn_inference(jobs: Res<BurnInferenceState>, mut votes: ResMut<PolypDetectionVotes>) {
     if let Some(result) = jobs.last_result.as_ref() {
         votes.vision = result.positive;
+    }
+}
+
+pub fn threshold_hotkeys(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut thresh: ResMut<InferenceThresholds>,
+    mut handle: ResMut<DetectorHandle>,
+    #[cfg(feature = "burn_runtime")] mut burn_loaded: ResMut<BurnDetector>,
+) {
+    let mut changed = false;
+    if keys.just_pressed(KeyCode::Minus) {
+        thresh.obj_thresh = (thresh.obj_thresh - 0.05).clamp(0.0, 1.0);
+        changed = true;
+    }
+    if keys.just_pressed(KeyCode::Equal) {
+        thresh.obj_thresh = (thresh.obj_thresh + 0.05).clamp(0.0, 1.0);
+        changed = true;
+    }
+    if keys.just_pressed(KeyCode::BracketLeft) {
+        thresh.iou_thresh = (thresh.iou_thresh - 0.05).clamp(0.1, 0.95);
+        changed = true;
+    }
+    if keys.just_pressed(KeyCode::BracketRight) {
+        thresh.iou_thresh = (thresh.iou_thresh + 0.05).clamp(0.1, 0.95);
+        changed = true;
+    }
+    if changed {
+        handle.detector.set_thresholds(thresh.obj_thresh, thresh.iou_thresh);
+        info!("Thresholds updated: obj={:.2}, iou={:.2}", thresh.obj_thresh, thresh.iou_thresh);
+    }
+
+    if keys.just_pressed(KeyCode::KeyB) {
+        #[cfg(feature = "burn_runtime")]
+        {
+            if handle.kind == DetectorKind::Burn {
+                handle.detector = Box::new(HeuristicDetector);
+                handle.kind = DetectorKind::Heuristic;
+                info!("Switched to heuristic detector");
+            } else if let Some(det) =
+                BurnTinyDetDetector::from_default_or_fallback(*thresh)
+            {
+                handle.detector = Box::new(det);
+                handle.kind = DetectorKind::Burn;
+                burn_loaded.model_loaded = true;
+                info!("Switched to Burn detector");
+            } else {
+                info!("Burn detector unavailable; staying on heuristic");
+            }
+        }
+        #[cfg(not(feature = "burn_runtime"))]
+        {
+            handle.detector = Box::new(HeuristicDetector);
+            handle.kind = DetectorKind::Heuristic;
+            info!("Burn runtime disabled; heuristic only");
+        }
     }
 }
 

@@ -41,8 +41,8 @@ use vision::{
     FrontCameraState, FrontCaptureReadback, InferenceThresholds, RecorderConfig, RecorderMotion,
     RecorderState, auto_start_recording, auto_stop_recording_on_cecum, capture_front_camera_frame,
     datagen_failsafe_recording, finalize_datagen_run, on_front_capture_readback,
-    poll_burn_inference, record_front_camera_metadata, recorder_toggle_hotkey,
-    schedule_burn_inference, setup_front_capture, track_front_camera_state, DetectionOverlayState,
+    poll_burn_inference, record_front_camera_metadata, recorder_toggle_hotkey, schedule_burn_inference,
+    setup_front_capture, threshold_hotkeys, track_front_camera_state, DetectionOverlayState,
 };
 
 pub fn run_app(args: crate::cli::AppArgs) {
@@ -152,6 +152,7 @@ pub fn run_app(args: crate::cli::AppArgs) {
             Update,
             (
                 recorder_toggle_hotkey,
+                threshold_hotkeys,
                 auto_start_recording,
                 auto_stop_recording_on_cecum,
                 finalize_datagen_run.after(auto_stop_recording_on_cecum),
