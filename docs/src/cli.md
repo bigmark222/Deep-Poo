@@ -67,17 +67,19 @@ The simulator ships multiple binaries (interactive, headless data-gen, overlay t
 9) **Headless datagen with only a frame cap**
    - Command: `cargo run --release --bin datagen_headless -- --max-frames 1000`
    - Flags: `--max-frames`
-     - Recording: automatic in headless; stops at cap.
+      - Recording: automatic in headless; stops at cap.
 
 10) **Visible datagen with max frames and seed**
     - Command: `cargo run --release --bin sim_view -- --mode datagen --seed 9876 --max-frames 750`
     - Flags: `--mode datagen`, `--seed`, `--max-frames`
-     - Recording: manual hotkeys; respects frame cap if recording is on.
+      - Recording: manual hotkeys; respects frame cap if recording is on.
 
 11) **Headless datagen writing to default root (short form)**
     - Command: `cargo run --release --bin datagen_headless`
     - Flags: none (binary is headless; mode defaults to `sim` but headless path is implied)
+     - Recording: automatic to `assets/datasets/captures` with time-based seed.
 
 12) **Headless datagen with custom output and headless flag (redundant but explicit)**
     - Command: `cargo run --release --bin datagen_headless -- --output-root /data/runs --headless`
     - Flags: `--output-root`, `--headless`
+     - Recording: automatic to `/data/runs` with time-based seed unless `--seed` is provided.
