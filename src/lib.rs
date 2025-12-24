@@ -81,6 +81,10 @@ pub fn run_app(args: crate::cli::AppArgs) {
         .insert_resource(FrontCaptureReadback::default())
         .insert_resource(BurnDetector::default())
         .insert_resource(BurnInferenceState::default())
+        .insert_resource(InferenceThresholds {
+            obj_thresh: args.infer_obj_thresh,
+            iou_thresh: args.infer_iou_thresh,
+        })
         .insert_resource(DetectionOverlayState::default())
         .insert_resource(RecorderConfig {
             output_root: args.output_root.clone(),

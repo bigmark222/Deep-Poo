@@ -122,19 +122,16 @@ pub struct DatagenOptions {
 
 /// Build a command to launch datagen (headless by default).
 pub fn datagen_command(opts: &DatagenOptions) -> io::Result<ServiceCommand> {
-    let bin = if opts.headless {
-        bin_path("datagen_headless")?
-    } else {
-        bin_path("sim_view")?
-    };
+    let bin = bin_path("sim_view")?;
     let mut args = Vec::new();
-    if !opts.headless {
-        args.push("--mode".into());
-        args.push("datagen".into());
-    }
+    args.push("--mode".into());
+    args.push("datagen".into());
     if let Some(seed) = opts.seed {
         args.push("--seed".into());
         args.push(seed.to_string());
+    }
+    if opts.headless {
+        args.push("--headless".into());
     }
     args.push("--output-root".into());
     args.push(opts.output_root.display().to_string());

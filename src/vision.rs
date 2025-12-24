@@ -740,8 +740,7 @@ pub fn auto_stop_recording_on_cecum(
     mut state: ResMut<RecorderState>,
     mut auto_timer: ResMut<AutoRecordTimer>,
     mut motion: ResMut<RecorderMotion>,
-    run_mode: Option<Res<RunMode>>,
-    mut exit: MessageWriter<AppExit>,
+    _run_mode: Option<Res<RunMode>>,
 ) {
     if !state.enabled {
         return;
@@ -755,19 +754,14 @@ pub fn auto_stop_recording_on_cecum(
             state.overlays_done = true;
         }
         state.enabled = false;
-        state.frame_idx = 0;
         auto_timer.timer.reset();
         state.paused = false;
         motion.last_head_z = None;
         motion.cumulative_forward = 0.0;
         motion.started = false;
-        state.initialized = false;
-        state.manifest_written = false;
         data_run.active = false;
         auto.enabled = false;
-        if run_mode.map_or(false, |m| *m == RunMode::Datagen) {
-            exit.write(AppExit::Success);
-        }
+        // Let finalize_datagen_run handle overlays/pruning/exit in Datagen mode.
     }
 }
 
@@ -878,6 +872,12 @@ pub(crate) fn init_run_dirs(
     polyp_meta: &crate::polyp::PolypSpawnMeta,
     cap_limit: &CaptureLimit,
 ) {
+    // Reset per-run flags before creating a new session directory so overlays,
+    // manifests, and pruning run for every capture session.
+    state.overlays_done = false;
+    state.prune_done = false;
+    state.manifest_written = false;
+
     let started_unix = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs_f64())
@@ -1193,9 +1193,6 @@ pub fn finalize_datagen_run(
     mut exit: MessageWriter<AppExit>,
 ) {
     if *mode != RunMode::Datagen {
-        return;
-    }
-    if !data_run.active {
         return;
     }
     if state.enabled || !state.initialized {

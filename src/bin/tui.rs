@@ -9,12 +9,11 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Terminal,
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::Span,
     widgets::{Block, Borders, List, ListItem, Paragraph},
-    Terminal,
 };
 use serde_json::json;
 
@@ -35,19 +34,17 @@ struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            title_fg: Color::Rgb(235, 240, 255),     // soft white
-            title_bg: Color::Rgb(20, 25, 36),        // midnight slate
-            border: Color::Rgb(88, 200, 196),        // suave teal edge
-            highlight: Color::Rgb(168, 132, 255),    // elegant violet pop
-            status_fg: Color::Rgb(230, 230, 230),    // calm text
-            status_bg: Color::Rgb(12, 18, 28),       // deep night blue
-            controls_fg: Color::Rgb(214, 219, 230),  // gentle contrast
-            controls_bg: Color::Rgb(28, 34, 48),     // smooth panel
+            title_fg: Color::Rgb(235, 240, 255),    // soft white
+            title_bg: Color::Rgb(20, 25, 36),       // midnight slate
+            border: Color::Rgb(88, 200, 196),       // suave teal edge
+            highlight: Color::Rgb(168, 132, 255),   // elegant violet pop
+            status_fg: Color::Rgb(230, 230, 230),   // calm text
+            status_bg: Color::Rgb(12, 18, 28),      // deep night blue
+            controls_fg: Color::Rgb(214, 219, 230), // gentle contrast
+            controls_bg: Color::Rgb(28, 34, 48),    // smooth panel
         }
     }
 }
-
-
 
 #[derive(Default)]
 struct AppState {
@@ -133,13 +130,18 @@ fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
                 seed: None,
                 max_frames: None,
                 headless: true,
-                prune_empty: false,
-                prune_output_root: None,
+                prune_empty: true,
+                prune_output_root: Some(
+                    Path::new("assets/datasets/captures_filtered").to_path_buf(),
+                ),
             };
             match service::datagen_command(&opts).and_then(|cmd| service::spawn(&cmd)) {
                 Ok(child) => {
                     state.datagen_pid = Some(child.id());
-                    state.status = format!("Started datagen (pid {})", child.id());
+                    state.status = format!(
+                        "Started datagen (pid {}), pruning -> assets/datasets/captures_filtered",
+                        child.id()
+                    );
                 }
                 Err(err) => state.status = format!("Datagen start failed: {err}"),
             }

@@ -15,7 +15,7 @@ The TUI is an optional front-end kept separate from the core simulator. It is bu
 ## Keybindings
 - `q` / `Esc`: quit
 - `r`: refresh runs list
-- `d`: start headless datagen (default output root)
+- `d`: start datagen via `sim_view --mode datagen --headless` with pruning (`--prune-empty`, output to `assets/datasets/captures_filtered`)
 - `m`: read last metrics entry (`checkpoints/metrics.jsonl`) and display (auto-refreshed on tick)
 - `l`: tail last 5 lines of `logs/train.log` (auto-refreshed on tick)
 - `t`: start training with defaults (writes `logs/train_status.json`)
