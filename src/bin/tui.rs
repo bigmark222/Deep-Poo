@@ -5,19 +5,49 @@ use std::time::{Duration, Instant};
 
 use crossterm::{
     event::{self, Event, KeyCode},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
-    Terminal,
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
-    text::{Span, Spans},
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    text::Span,
     widgets::{Block, Borders, List, ListItem, Paragraph},
+    Terminal,
 };
 use serde_json::json;
 
 use colon_sim::service;
+
+#[derive(Clone, Copy)]
+struct Theme {
+    title_fg: Color,
+    title_bg: Color,
+    border: Color,
+    highlight: Color,
+    status_fg: Color,
+    status_bg: Color,
+    controls_fg: Color,
+    controls_bg: Color,
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Self {
+            title_fg: Color::Rgb(235, 240, 255),     // soft white
+            title_bg: Color::Rgb(20, 25, 36),        // midnight slate
+            border: Color::Rgb(88, 200, 196),        // suave teal edge
+            highlight: Color::Rgb(168, 132, 255),    // elegant violet pop
+            status_fg: Color::Rgb(230, 230, 230),    // calm text
+            status_bg: Color::Rgb(12, 18, 28),       // deep night blue
+            controls_fg: Color::Rgb(214, 219, 230),  // gentle contrast
+            controls_bg: Color::Rgb(28, 34, 48),     // smooth panel
+        }
+    }
+}
+
+
 
 #[derive(Default)]
 struct AppState {
@@ -40,8 +70,9 @@ fn main() -> io::Result<()> {
 }
 
 fn run_app() -> io::Result<()> {
-    enable_raw_mode()?;
     let mut stdout = io::stdout();
+    enable_raw_mode()?;
+    execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(&mut stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -80,6 +111,8 @@ fn run_app() -> io::Result<()> {
     }
 
     disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    terminal.show_cursor()?;
     Ok(())
 }
 
@@ -190,12 +223,30 @@ fn tick(state: &mut AppState) {
     }
 }
 
-fn draw_ui(f: &mut ratatui::Frame<CrosstermBackend<std::io::Stdout>>, state: &AppState) {
-    let chunks = Layout::default()
+fn draw_ui(f: &mut ratatui::Frame<'_>, state: &AppState) {
+    let theme = Theme::default();
+    let root = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([Constraint::Min(5), Constraint::Length(8)].as_ref())
+        .constraints(
+            [
+                Constraint::Length(1), // title
+                Constraint::Min(5),    // main content
+                Constraint::Length(2), // controls/help
+            ]
+            .as_ref(),
+        )
         .split(f.size());
+
+    let title = Paragraph::new("Deep Poo")
+        .style(Style::default().fg(theme.title_fg).bg(theme.title_bg))
+        .alignment(Alignment::Center);
+    f.render_widget(title, root[0]);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(5), Constraint::Length(8)].as_ref())
+        .split(root[1]);
 
     let items: Vec<ListItem> = state
         .runs
@@ -204,14 +255,26 @@ fn draw_ui(f: &mut ratatui::Frame<CrosstermBackend<std::io::Stdout>>, state: &Ap
         .map(|(i, r)| {
             let label = r.path.display().to_string();
             let label = if i == state.selected {
-                format!("> {label}")
+                format!("▶ {label}")
             } else {
                 format!("  {label}")
             };
-            ListItem::new(Spans::from(Span::raw(label)))
+            let style = if i == state.selected {
+                Style::default()
+                    .fg(theme.highlight)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            ListItem::new(label).style(style)
         })
         .collect();
-    let list = List::new(items).block(Block::default().borders(Borders::ALL).title("Runs"));
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(theme.border))
+            .title("Runs"),
+    );
     f.render_widget(list, chunks[0]);
 
     let mut status_lines = vec![state.status.clone()];
@@ -261,9 +324,21 @@ fn draw_ui(f: &mut ratatui::Frame<CrosstermBackend<std::io::Stdout>>, state: &Ap
         status_lines.extend(detail);
     }
     let help = Paragraph::new(status_lines.join("\n"))
-        .style(Style::default().fg(Color::DarkGray))
-        .block(Block::default().borders(Borders::ALL).title("Status"));
+        .style(Style::default().fg(theme.status_fg).bg(theme.status_bg))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(theme.border))
+                .title("Status"),
+        );
     f.render_widget(help, chunks[1]);
+
+    let controls = Paragraph::new(
+        "Controls: [r] refresh runs  [d] datagen  [t] train  [m] metrics tail  [l] log tail  [↑/↓] select  [q]/Esc quit",
+    )
+    .style(Style::default().fg(theme.controls_fg).bg(theme.controls_bg))
+    .alignment(Alignment::Center);
+    f.render_widget(controls, root[2]);
 }
 
 fn selected_run_detail(state: &AppState) -> Option<Vec<String>> {

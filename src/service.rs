@@ -230,9 +230,8 @@ pub fn read_log_tail(path: &Path, limit: usize) -> Result<Vec<String>, ServiceEr
 
 #[cfg(feature = "tui")]
 pub fn is_process_running(pid: u32) -> bool {
-    let mut sys = System::new_with_specifics(
-        RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing()),
-    );
+    let mut sys =
+        System::new_with_specifics(RefreshKind::new().with_processes(ProcessRefreshKind::new()));
     let pid = Pid::from_u32(pid);
     sys.refresh_process(pid)
 }
