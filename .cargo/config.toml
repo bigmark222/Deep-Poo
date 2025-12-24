@@ -1,0 +1,2 @@
+[alias]
+tui = "run --features tui --bin tui"
