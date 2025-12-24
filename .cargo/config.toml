@@ -1,2 +1,7 @@
 [alias]
-tui = "run --features tui --bin tui"
+tui = "run --release --features \"tui,burn_runtime,burn_wgpu\" --bin tui"
+tui_debug = "run --features \"tui,burn_runtime,burn_wgpu\" --bin tui"
+# Match the TUI datagen command (headless sim_view with pruning to captures_filtered).
+datagen = ["run", "--release", "--bin", "sim_view", "--", "--mode", "datagen", "--headless", "--output-root", "assets/datasets/captures", "--prune-empty", "--prune-output-root", "assets/datasets/captures_filtered"]
+# Match the TUI train command (defaults: filtered captures, 20% val, bs=2, epochs=1, seed=42, status file).
+train = ["run", "--release", "--features", "burn_runtime,burn_wgpu", "--bin", "train", "--", "--input-root", "assets/datasets/captures_filtered", "--val-ratio", "0.2", "--batch-size", "2", "--epochs", "1", "--seed", "42", "--status-file", "logs/train_status.json"]

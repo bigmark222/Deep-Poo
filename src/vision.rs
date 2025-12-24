@@ -601,10 +601,18 @@ pub fn poll_burn_inference(jobs: Res<BurnInferenceState>, mut votes: ResMut<Poly
 
 pub fn threshold_hotkeys(
     keys: Res<ButtonInput<KeyCode>>,
-    mut thresh: ResMut<InferenceThresholds>,
-    mut handle: ResMut<DetectorHandle>,
-    #[cfg(feature = "burn_runtime")] mut burn_loaded: ResMut<BurnDetector>,
+    thresh: Option<ResMut<InferenceThresholds>>,
+    handle: Option<ResMut<DetectorHandle>>,
+    #[cfg(feature = "burn_runtime")] burn_loaded: Option<ResMut<BurnDetector>>,
 ) {
+    let (Some(mut thresh), Some(mut handle)) = (thresh, handle) else {
+        return;
+    };
+    #[cfg(feature = "burn_runtime")]
+    let Some(mut burn_loaded) = burn_loaded else {
+        return;
+    };
+
     let mut changed = false;
     if keys.just_pressed(KeyCode::Minus) {
         thresh.obj_thresh = (thresh.obj_thresh - 0.05).clamp(0.0, 1.0);
