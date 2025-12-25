@@ -139,7 +139,9 @@ mod real {
 
     pub fn main_impl() -> Result<()> {
         let args = TrainArgs::parse();
+        println!("Initializing backend device...");
         let device = <ADBackend as burn::tensor::backend::Backend>::Device::default();
+        println!("Backend device ready.");
         let effective_seed = args.seed.or(Some(42));
         println!("Using seed {:?}", effective_seed);
         let batch_size = args.batch_size.max(1);
@@ -153,6 +155,7 @@ mod real {
         };
 
         let root = Path::new(&args.input_root);
+        println!("Indexing dataset under {} ...", root.display());
         let indices = colon_sim::tools::burn_dataset::index_runs(root)
             .map_err(|e| anyhow::anyhow!("{:?}", e))?;
         let (train_idx, default_val_idx) = {
