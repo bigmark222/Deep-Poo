@@ -64,6 +64,7 @@ enum GpuVendor {
     Nvidia,
     Amd,
     Intel,
+    #[cfg(target_os = "macos")]
     Apple,
 }
 
@@ -250,6 +251,7 @@ fn log_gpu_probe(v: Option<GpuVendor>) {
         Some(GpuVendor::Nvidia) => println!("GPU probe: detected NVIDIA via nvidia-smi"),
         Some(GpuVendor::Amd) => println!("GPU probe: detected AMD via rocm-smi/radeontop"),
         Some(GpuVendor::Intel) => println!("GPU probe: detected Intel via intel_gpu_top"),
+        #[cfg(target_os = "macos")]
         Some(GpuVendor::Apple) => println!("GPU probe: detected Apple via helper"),
         None => println!("GPU probe: none detected; GPU gating disabled"),
     }
@@ -260,6 +262,7 @@ fn sample_gpu(vendor: GpuVendor) -> Option<GpuStats> {
         GpuVendor::Nvidia => sample_nvidia(),
         GpuVendor::Amd => sample_amd(),
         GpuVendor::Intel => sample_intel(),
+        #[cfg(target_os = "macos")]
         GpuVendor::Apple => sample_apple_helper(),
     }
 }
