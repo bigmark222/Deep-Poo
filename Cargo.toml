@@ -67,7 +67,7 @@ burn-ndarray = { version = "0.14", optional = true }
 burn-wgpu = { version = "0.14", optional = true, default-features = true }
 ratatui = { version = "0.26", optional = true, default-features = false, features = ["crossterm"] }
 crossterm = { version = "0.27", optional = true }
-sysinfo = { version = "0.30", optional = true, default-features = false, features = ["multithread"] }
+sysinfo = { version = "0.30", optional = true, default-features = true, features = ["multithread"] }
 thiserror = "1.0"
 nvml-wrapper = { version = "0.8", optional = true }
 

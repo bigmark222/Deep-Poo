@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use clap::Parser;
 use colon_sim::service::{self, DatagenOptions};
 use serde::Deserialize;
-use sysinfo::{CpuExt, System, SystemExt};
+use sysinfo::System;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -56,7 +56,6 @@ struct Args {
 
 struct Running {
     pid: u32,
-    started: Instant,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -124,10 +123,7 @@ fn main() -> anyhow::Result<()> {
                             .map(|p| p.display().to_string())
                             .unwrap_or_else(|| "<auto>".to_string())
                     );
-                    running.push(Running {
-                        pid: child.id(),
-                        started: Instant::now(),
-                    });
+                    running.push(Running { pid: child.id() });
                     launched += 1;
                 }
                 Err(err) => {
@@ -151,23 +147,6 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn resources_ok(sys: &mut System, max_cpu: f32, min_free_mem_mb: u64) -> bool {
-    sys.refresh_cpu();
-    sys.refresh_memory();
-    let cpu = sys.global_cpu_info().cpu_usage();
-    let free_mb = sys.available_memory() / 1024 / 1024;
-    if cpu > max_cpu {
-        return false;
-    }
-    if free_mb < min_free_mem_mb {
-        return false;
-    }
-    // GPU gating if we have a vendor and thresholds.
-    // If probe fails or thresholds are unset, we skip GPU gating.
-    // GPU mem is optional per vendor; utilization is primary.
-    true
-}
-
 fn resources_ok(
     sys: &mut System,
     max_cpu: f32,
@@ -176,7 +155,14 @@ fn resources_ok(
     max_gpu: Option<f32>,
     max_gpu_mem_mb: Option<u64>,
 ) -> bool {
-    if !resources_ok(sys, max_cpu, min_free_mem_mb) {
+    sys.refresh_cpu();
+    sys.refresh_memory();
+    let cpu = sys.global_cpu_info().cpu_usage();
+    let free_mb = sys.available_memory() / 1024 / 1024;
+    if cpu > max_cpu {
+        return false;
+    }
+    if free_mb < min_free_mem_mb {
         return false;
     }
     if let (Some(vendor), Some(max_gpu_thresh)) = (gpu_vendor, max_gpu) {
@@ -467,7 +453,7 @@ fn sample_intel_mem_text(text: &str) -> Option<u64> {
         if lower.contains("mem") {
             if let Some(num) = line
                 .split_whitespace()
-                .filter_map(|w| w.trim_end_matches(['%', 'm', 'M', 'b', 'B']))
+                .filter_map(|w| Some(w.trim_end_matches(['%', 'm', 'M', 'b', 'B'])))
                 .filter_map(|w| w.parse::<f64>().ok())
                 .last()
             {
@@ -495,13 +481,14 @@ fn sample_apple_helper() -> Option<GpuStats> {
             mem_used_mb: Option<u64>,
         }
         let payload: HelperPayload = serde_json::from_slice(&output.stdout).ok()?;
-        if !payload.available {
-            return None;
+        if payload.available {
+            if let Some(u) = payload.utilization {
+                return Some(GpuStats {
+                    utilization: u as f32,
+                    mem_used_mb: payload.mem_used_mb,
+                });
+            }
         }
-        return payload.utilization.map(|u| GpuStats {
-            utilization: u as f32,
-            mem_used_mb: payload.mem_used_mb,
-        });
     }
     None
 }
