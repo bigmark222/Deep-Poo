@@ -22,7 +22,9 @@ mod real {
     use burn_wgpu::Wgpu;
     use clap::Parser;
     use colon_sim::burn_model::{TinyDet, TinyDetConfig, assign_targets_to_grid, nms};
-    use colon_sim::tools::burn_dataset::{BurnBatch, WarehouseLoaders, WarehouseManifest};
+    use colon_sim::tools::burn_dataset::{
+        BurnBatch, SampleIndex, WarehouseLoaders, WarehouseManifest,
+    };
     use serde::{Deserialize, Serialize};
 
     #[derive(Parser, Debug)]
