@@ -16,7 +16,7 @@ High-performance preset (release, GPU, larger batch/epochs):
 ```bash
 # From repo root
 cargo train_hp
-# Defaults: --input-root assets/datasets/captures_filtered --val-ratio 0.1 --batch-size 64 --epochs 20 --scheduler cosine --lr-start 3e-4 --lr-end 1e-5 --status-file logs/train_hp_status.json
+# Defaults: --input-root assets/datasets/captures_filtered --val-ratio 0.1 --batch-size 128 --epochs 20 --scheduler cosine --lr-start 3e-4 --lr-end 1e-5 --target-size 256x256 --val-target-size 256x256 --status-file logs/train_hp_status.json
 ```
 Run from the repo root. Adjust adapter/backend in the shell if needed (`WGPU_POWER_PREF=high-performance`, `WGPU_BACKEND=dx12` or `vulkan`, `WGPU_ADAPTER_NAME=<name>`).
 
@@ -144,5 +144,4 @@ Runtime inference thresholds are adjusted via hotkeys in the sim (`-`/`=` for ob
 - Demo/bundled checkpoint: pass `--demo-checkpoint <path>` during training/eval; for runtime, place it at `checkpoints/tinydet.bin` (or update CLI flags) so the sim loads it automatically.
 - Runtime knobs: during sim, adjust thresholds with `-`/`=` (objectness) and `[`/`]` (IoU); press `B` to toggle between Burn and heuristic detectors. The HUD shows mode, box count, inference latency, and fallback banners.
 - Eval-only: `cargo run --features burn_runtime --bin eval -- --checkpoint <path> --input-root <val_root> [--val-iou-sweep ...] [--metrics-out ...]`.
-
 

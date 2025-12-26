@@ -106,6 +106,9 @@ mod real {
         /// Optional training status file (JSON) to report progress for UIs.
         #[arg(long)]
         status_file: Option<String>,
+        /// Target size for training images (e.g., 128x128).
+        #[arg(long, value_parser = parse_target_size, default_value = "128x128")]
+        target_size: (u32, u32),
         /// Optional val target size (e.g., 256x256). Defaults to train target_size.
         #[arg(long, value_parser = parse_target_size)]
         val_target_size: Option<(u32, u32)>,
@@ -177,7 +180,7 @@ mod real {
         println!("Using seed {:?}", effective_seed);
         let batch_size = args.batch_size.max(1);
         let cfg = DatasetConfig {
-            target_size: Some((128, 128)),
+            target_size: Some(args.target_size),
             flip_horizontal_prob: 0.5,
             max_boxes: 8,
             seed: effective_seed,
@@ -270,9 +273,7 @@ mod real {
         );
         let val_cfg = {
             let mut base = cfg.clone();
-            if let Some(ts) = args.val_target_size {
-                base.target_size = Some(ts);
-            }
+            base.target_size = args.val_target_size.or(base.target_size);
             if let Some(mode) = args.val_resize_mode.as_deref() {
                 base.resize_mode = match mode {
                     "force" => colon_sim::tools::burn_dataset::ResizeMode::Force,
