@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "burn_runtime")]
 use rayon::prelude::*;
 #[cfg(feature = "burn_runtime")]
+use std::io::Write;
+#[cfg(feature = "burn_runtime")]
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
@@ -498,13 +500,13 @@ pub struct DatasetSummary {
 pub fn build_train_val_iters(
     root: &Path,
     val_ratio: f32,
-    mut train_cfg: DatasetConfig,
+    train_cfg: DatasetConfig,
     val_cfg: Option<DatasetConfig>,
 ) -> DatasetResult<(BatchIter, BatchIter)> {
     let indices = index_runs(root)?;
     let (train_idx, val_idx) = split_runs(indices, val_ratio);
     // For val, default to no shuffle/aug.
-    let mut val_cfg = val_cfg.unwrap_or_else(|| DatasetConfig {
+    let val_cfg = val_cfg.unwrap_or_else(|| DatasetConfig {
         shuffle: false,
         drop_last: false,
         flip_horizontal_prob: 0.0,
@@ -1246,7 +1248,10 @@ impl BatchIter {
                 match expected_size {
                     None => expected_size = Some(size),
                     Some(sz) if sz != size => {
-                        return Err("batch contains varying image sizes; set a target_size to force consistency".into());
+                        return Err(BurnDatasetError::Other(
+                            "batch contains varying image sizes; set a target_size to force consistency"
+                                .to_string(),
+                        ));
                     }
                     _ => {}
                 }
@@ -1286,7 +1291,7 @@ impl BatchIter {
                 self.mask_buf.extend_from_slice(&mask);
             }
 
-            if images.is_empty() {
+            if self.images_buf.is_empty() {
                 if skipped_empty > 0 || skipped_missing > 0 {
                     self.skipped_total += skipped_empty + skipped_missing;
                     self.skipped_empty += skipped_empty;
@@ -1299,7 +1304,7 @@ impl BatchIter {
 
             let t_assemble = Instant::now();
             let (width, height) = expected_size.expect("batch size > 0 ensures size is set");
-            let batch_len = frame_ids.len();
+            let batch_len = self.frame_ids_buf.len();
             if self.cfg.drop_last && batch_len < batch_size {
                 if self.cursor >= self.indices.len() {
                     return Ok(None);
