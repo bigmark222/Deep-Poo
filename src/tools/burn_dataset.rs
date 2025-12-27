@@ -2281,6 +2281,10 @@ impl WarehouseShardStore for StreamingStore {
         self.val_order.len()
     }
 
+    fn total_shards(&self) -> usize {
+        self.shards.len()
+    }
+
     fn mode(&self) -> WarehouseStoreMode {
         WarehouseStoreMode::Streaming
     }
@@ -2292,6 +2296,7 @@ pub trait WarehouseShardStore: Send + Sync {
     fn val_iter(&self) -> WarehouseBatchIter;
     fn train_len(&self) -> usize;
     fn val_len(&self) -> usize;
+    fn total_shards(&self) -> usize;
     #[allow(dead_code)]
     fn mode(&self) -> WarehouseStoreMode {
         WarehouseStoreMode::InMemory
@@ -2412,6 +2417,10 @@ impl WarehouseShardStore for InMemoryStore {
     fn val_len(&self) -> usize {
         self.val_order.len()
     }
+
+    fn total_shards(&self) -> usize {
+        self.shards.len()
+    }
 }
 
 #[cfg(feature = "burn_runtime")]
@@ -2522,6 +2531,10 @@ impl WarehouseShardStore for MmapStore {
 
     fn val_len(&self) -> usize {
         self.val_order.len()
+    }
+
+    fn total_shards(&self) -> usize {
+        self.shards.len()
     }
 
     fn mode(&self) -> WarehouseStoreMode {

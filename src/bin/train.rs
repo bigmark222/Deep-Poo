@@ -443,15 +443,6 @@ mod real {
             manifest.summary.totals.missing_file,
             manifest.summary.totals.invalid
         );
-        if let WarehouseStoreMode::Streaming = WarehouseStoreMode::from_env() {
-            println!(
-                "[warehouse] streaming mode: prefetch={} shards={} train_samples={} val_samples={}",
-                WarehouseStoreMode::prefetch_from_env(),
-                loaders.store_len(),
-                train_len,
-                val_len
-            );
-        }
         let loaders = WarehouseLoaders::from_manifest_path(
             manifest_path,
             args.val_ratio,
@@ -461,6 +452,15 @@ mod real {
         .map_err(|e| anyhow::anyhow!("{:?}", e))?;
         let train_len = loaders.train_len();
         let val_len = loaders.val_len();
+        if let WarehouseStoreMode::Streaming = WarehouseStoreMode::from_env() {
+            println!(
+                "[warehouse] streaming mode: prefetch={} shards={} train_samples={} val_samples={}",
+                WarehouseStoreMode::prefetch_from_env(),
+                loaders.store_len(),
+                train_len,
+                val_len
+            );
+        }
         if train_len == 0 {
             anyhow::bail!("No training samples found in warehouse manifest");
         }
