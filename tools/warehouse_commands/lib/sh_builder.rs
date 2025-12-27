@@ -17,7 +17,7 @@ pub fn build_bash_command(cfg: &CmdConfig<'_>) -> String {
         env_parts.push(format!("WGPU_ADAPTER_NAME=\"{}\"", adapter));
     }
     env_parts.push("WGPU_POWER_PREF=\"high-performance\"".into());
-    env_parts.push("RUST_LOG=\"info,wgpu_core=info\"".into());
+    env_parts.push("RUST_LOG=\"trace,wgpu_core=trace,wgpu_hal=trace\"".into());
 
     let mut cmd_parts = Vec::new();
     cmd_parts.push("cargo train_hp".to_string());
