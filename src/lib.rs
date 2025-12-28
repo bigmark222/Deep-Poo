@@ -33,6 +33,7 @@ use balloon_control::{
 };
 use camera::{PovState, camera_controller, pov_toggle_system, setup_camera};
 use controls::{ControlParams, control_inputs_and_apply};
+use crate::cli::RunMode;
 use hud::{spawn_controls_ui, spawn_detection_overlay, update_controls_ui};
 use polyp::{
     PolypDetectionVotes, PolypRandom, PolypRemoval, PolypSpawnMeta, PolypTelemetry,
@@ -58,10 +59,15 @@ pub fn run_app(args: crate::cli::AppArgs) {
         obj_thresh: args.infer_obj_thresh,
         iou_thresh: args.infer_iou_thresh,
     };
-    App::new()
+    let mut app = App::new();
+
+    if args.mode == RunMode::Inference {
+        app.insert_resource(DetectorHandle::with_thresholds(infer_thresh));
+    }
+
+    app
         .insert_resource(SeedState { value: polyp_seed })
         .insert_resource(args.mode)
-        .insert_resource(DetectorHandle::with_thresholds(infer_thresh))
         .insert_resource(AmbientLight {
             color: Color::srgb(1.0, 1.0, 1.0),
             brightness: 0.4,
@@ -153,8 +159,6 @@ pub fn run_app(args: crate::cli::AppArgs) {
                 pov_toggle_system,
                 track_front_camera_state,
                 capture_front_camera_frame.after(track_front_camera_state),
-                schedule_burn_inference.after(capture_front_camera_frame),
-                poll_burn_inference.after(schedule_burn_inference),
                 apply_detection_votes
                     .after(polyp_detection_system)
                     .after(poll_burn_inference),
@@ -172,7 +176,6 @@ pub fn run_app(args: crate::cli::AppArgs) {
                 record_front_camera_metadata.after(capture_front_camera_frame),
                 control_inputs_and_apply,
                 update_controls_ui,
-                hud::update_detection_overlay_ui.after(poll_burn_inference),
                 cecum_detection,
                 start_detection,
                 tunnel_expansion_system,
@@ -188,8 +191,21 @@ pub fn run_app(args: crate::cli::AppArgs) {
                 peristaltic_drive,
                 distributed_thrust.before(PhysicsSet::SyncBackend),
             ),
-        )
-        .run();
+        );
+
+    if args.mode == RunMode::Inference {
+        app.add_systems(
+            Update,
+            (
+                schedule_burn_inference.after(capture_front_camera_frame),
+                poll_burn_inference.after(schedule_burn_inference),
+                threshold_hotkeys,
+                hud::update_detection_overlay_ui.after(poll_burn_inference),
+            ),
+        );
+    }
+
+    app.run();
 }
 
 fn spawn_environment(mut commands: Commands) {

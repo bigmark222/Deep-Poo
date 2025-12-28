@@ -298,7 +298,7 @@ pub fn update_controls_ui(
     front_cam: Res<FrontCameraState>,
     burn: Res<BurnInferenceState>,
     overlay: Res<DetectionOverlayState>,
-    handle: Res<DetectorHandle>,
+    handle: Option<Res<DetectorHandle>>,
     recorder: Res<RecorderState>,
     ui: Single<Entity, (With<ControlText>, With<Text>)>,
     mut writer: TextUiWriter,
@@ -334,10 +334,8 @@ pub fn update_controls_ui(
             .unwrap_or_else(|| "--".into());
         *writer.text(*ui, 11) = format!("NEAREST :: {}", nearest_str);
         let cam_state = if front_cam.active { "ON" } else { "OFF" };
-        let burn_state = burn
-            .last_result
-            .as_ref()
-            .map(|r| {
+        let burn_state = match (burn.last_result.as_ref(), handle) {
+            (Some(r), Some(handle)) => {
                 let boxes = overlay.boxes.len();
                 let max_score = overlay.scores.iter().cloned().fold(0.0_f32, f32::max);
                 let latency = overlay
@@ -376,8 +374,9 @@ pub fn update_controls_ui(
                         latency
                     )
                 }
-            })
-            .unwrap_or_else(|| "--".to_string());
+            }
+            _ => "--".to_string(),
+        };
         *writer.text(*ui, 12) = format!("VISION :: cam={} burn={}", cam_state, burn_state);
         let consensus = if polyps.consensus_ready {
             "go"

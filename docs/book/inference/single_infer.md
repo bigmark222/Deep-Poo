@@ -23,7 +23,7 @@ cargo run --features "burn_runtime_wgpu" --bin single_infer -- \
 - `--out <path>` (optional): output boxed image. Defaults to `<stem>_boxed.png` next to input.
 - `--infer-obj-thresh` (default `0.3`): objectness threshold.
 - `--infer-iou-thresh` (default `0.5`): IoU threshold for NMS.
-- WGPU/envs: set `WGPU_BACKEND`, `WGPU_ADAPTER_NAME`, `WGPU_POWER_PREF` if needed for your GPU; set `RUST_LOG` for logging.
+- WGPU/envs: see `reference/wgpu_envs.md` for env vars and examples.
 </details>
 
 <details>
