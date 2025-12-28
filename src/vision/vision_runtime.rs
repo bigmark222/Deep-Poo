@@ -7,7 +7,8 @@ use std::path::Path;
 
 use crate::cli::RunMode;
 use crate::polyp::PolypDetectionVotes;
-use crate::sim::recorder::RecorderConfig;
+use sim_core::recorder_types::RecorderConfig;
+use sim_core::ModeSet;
 use crate::vision::interfaces::{self, DetectionResult, Frame};
 
 #[cfg(feature = "burn_runtime")]
@@ -331,11 +332,6 @@ impl interfaces::Detector for BurnTinyDetDetector {
     }
 }
 
-#[derive(Resource, Default)]
-pub struct CaptureLimit {
-    pub max_frames: Option<u32>,
-}
-
 pub fn track_front_camera_state(
     mut state: ResMut<FrontCameraState>,
     mut votes: ResMut<PolypDetectionVotes>,
@@ -368,6 +364,27 @@ pub struct FrontCaptureTarget {
 #[derive(Resource, Default, Clone)]
 pub struct FrontCaptureReadback {
     pub latest: Option<Vec<u8>>,
+}
+
+pub struct CapturePlugin;
+
+impl Plugin for CapturePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_observer(on_front_capture_readback)
+            .add_systems(
+                Startup,
+                (setup_front_capture,).in_set(ModeSet::Common),
+            )
+            .add_systems(
+                Update,
+                (
+                    track_front_camera_state,
+                    capture_front_camera_frame.after(track_front_camera_state),
+                    threshold_hotkeys,
+                )
+                    .in_set(ModeSet::Common),
+            );
+    }
 }
 
 pub fn setup_front_capture(
@@ -565,6 +582,22 @@ pub fn threshold_hotkeys(
             handle.kind = DetectorKind::Heuristic;
             info!("Burn runtime disabled; heuristic only");
         }
+    }
+}
+
+pub struct InferencePlugin;
+
+impl Plugin for InferencePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                schedule_burn_inference.after(capture_front_camera_frame),
+                poll_burn_inference.after(schedule_burn_inference),
+                threshold_hotkeys,
+            )
+                .in_set(ModeSet::Inference),
+        );
     }
 }
 

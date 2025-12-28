@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::RapierPhysicsPlugin;
+use std::path::PathBuf;
 
 /// High-level run mode for the sim runtime (detector-free).
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -15,6 +16,11 @@ pub enum SimRunMode {
 pub struct SimConfig {
     pub mode: SimRunMode,
     pub headless: bool,
+    pub capture_output_root: PathBuf,
+    pub prune_empty: bool,
+    pub prune_output_root: Option<PathBuf>,
+    pub max_frames: Option<u32>,
+    pub capture_interval_secs: Option<f32>,
 }
 
 impl Default for SimConfig {
@@ -22,6 +28,11 @@ impl Default for SimConfig {
         Self {
             mode: SimRunMode::Sim,
             headless: false,
+            capture_output_root: PathBuf::from("assets/datasets/captures"),
+            prune_empty: false,
+            prune_output_root: None,
+            max_frames: None,
+            capture_interval_secs: None,
         }
     }
 }
@@ -46,12 +57,15 @@ impl Plugin for SimPlugin {
 
 pub mod prelude {
     pub use super::{ModeSet, SimConfig, SimPlugin, SimRunMode};
+    pub use crate::autopilot_types::{AutoDir, AutoDrive, AutoStage, DataRun, DatagenInit};
     pub use crate::camera::{
         Flycam, PovState, ProbePovCamera, UiOverlayCamera, camera_controller, pov_toggle_system,
         setup_camera,
     };
     pub use crate::controls::{ControlParams, control_inputs_and_apply};
+    pub use crate::recorder_types::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
     pub use crate::probe_types::{ProbeSegment, SegmentSpring};
+    pub use crate::runtime::{SimRuntimePlugin, register_runtime_systems};
 }
 
 /// Build a base Bevy `App` with sim mode sets and config. Detector wiring is intentionally omitted.
@@ -66,4 +80,7 @@ pub fn build_app(sim_config: SimConfig) -> App {
 
 pub mod camera;
 pub mod controls;
+pub mod autopilot_types;
 pub mod probe_types;
+pub mod recorder_types;
+pub mod runtime;

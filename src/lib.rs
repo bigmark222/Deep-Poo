@@ -22,42 +22,24 @@ use bevy_rapier3d::prelude::*;
 
 const RAPIER_DEBUG_WIREFRAMES: bool = true;
 
-use sim::autopilot::{
-    AutoDrive, DataRun, DatagenInit, auto_inchworm, auto_toggle, data_run_toggle, datagen_autostart,
-};
-use balloon_control::{
-    BalloonControl, balloon_body_update, balloon_control_input, balloon_marker_update,
-    spawn_balloon_body, spawn_balloon_marker,
-};
-use sim_core::camera::{PovState, camera_controller, pov_toggle_system, setup_camera};
-use sim_core::controls::{ControlParams, control_inputs_and_apply};
+use sim::runtime::SimSystemsPlugin;
+use balloon_control::BalloonControl;
+use sim_core::camera::PovState;
+use sim_core::controls::ControlParams;
+use sim_core::recorder_types::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
+use sim_core::{ModeSet, SimConfig, SimPlugin, SimRunMode, build_app};
 use crate::cli::RunMode;
-use hud::{spawn_controls_ui, spawn_detection_overlay, update_controls_ui};
-use sim::recorder::{
-    auto_start_recording, auto_stop_recording_on_cecum, datagen_failsafe_recording,
-    finalize_datagen_run, record_front_camera_metadata, recorder_toggle_hotkey, AutoRecordTimer,
-    RecorderConfig, RecorderMotion, RecorderState,
-};
 use polyp::{
     PolypDetectionVotes, PolypRandom, PolypRemoval, PolypSpawnMeta, PolypTelemetry,
-    apply_detection_votes, polyp_detection_system, polyp_removal_system, spawn_polyps,
 };
-use probe::{StretchState, TipSense, distributed_thrust, peristaltic_drive, spawn_probe};
+use probe::{StretchState, TipSense};
 use seed::{SeedState, resolve_seed};
-use tunnel::{CecumState, cecum_detection, setup_tunnel, start_detection, tunnel_expansion_system};
+use tunnel::CecumState;
 use vision::{
     BurnDetector, BurnInferenceState, DetectionOverlayState, DefaultDetectorFactory, DetectorFactory,
     FrontCameraFrameBuffer, FrontCameraState, FrontCaptureReadback, InferenceThresholds,
-    capture_front_camera_frame, on_front_capture_readback, poll_burn_inference,
-    schedule_burn_inference, setup_front_capture, threshold_hotkeys, track_front_camera_state,
+    poll_burn_inference, InferencePlugin,
 };
-
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ModeSet {
-    Common,
-    SimDatagen,
-    Inference,
-}
 
 pub fn run_app(args: crate::cli::AppArgs) {
     let polyp_seed = resolve_seed(args.seed);
@@ -67,7 +49,23 @@ pub fn run_app(args: crate::cli::AppArgs) {
     let weights_opts: common_cli::WeightsOpts = (&args).into();
     let weights_path = weights_opts.detector_weights.as_deref();
     let capture_opts: common_cli::CaptureOutputOpts = (&args).into();
-    let mut app = App::new();
+    let sim_mode = match args.mode {
+        RunMode::Datagen => SimRunMode::Datagen,
+        RunMode::Inference => SimRunMode::Inference,
+        RunMode::Sim => SimRunMode::Sim,
+    };
+
+    let sim_config = SimConfig {
+        mode: sim_mode,
+        headless,
+        capture_output_root: capture_opts.output_root.clone(),
+        prune_empty: capture_opts.prune_empty,
+        prune_output_root: capture_opts.prune_output_root.clone(),
+        max_frames: args.max_frames,
+        capture_interval_secs: None,
+    };
+
+    let mut app = build_app(sim_config.clone());
 
     if args.mode == RunMode::Inference {
         let factory = DefaultDetectorFactory;
@@ -90,31 +88,29 @@ pub fn run_app(args: crate::cli::AppArgs) {
         .insert_resource(PolypTelemetry::default())
         .insert_resource(PolypDetectionVotes::default())
         .insert_resource(PolypRemoval::default())
-        .insert_resource(AutoDrive::default())
-        .insert_resource(DataRun::default())
-        .insert_resource(DatagenInit::default())
         .insert_resource(CecumState::default())
         .insert_resource(PovState::default())
         .insert_resource(FrontCameraState::default())
         .insert_resource(FrontCameraFrameBuffer::default())
         .insert_resource(FrontCaptureReadback::default())
-        .insert_resource(BurnDetector::default())
-        .insert_resource(BurnInferenceState::default())
-        .insert_resource(InferenceThresholds {
-            obj_thresh: args.infer_obj_thresh,
-            iou_thresh: args.infer_iou_thresh,
-        })
         .insert_resource(DetectionOverlayState::default())
-        .insert_resource(RecorderConfig {
-            output_root: capture_opts.output_root.clone(),
-            prune_empty: capture_opts.prune_empty,
-            prune_output_root: capture_opts.prune_output_root.clone(),
-            ..default()
+        .insert_resource({
+            let mut cfg = RecorderConfig {
+                output_root: sim_config.capture_output_root.clone(),
+                prune_empty: sim_config.prune_empty,
+                prune_output_root: sim_config.prune_output_root.clone(),
+                ..default()
+            };
+            if let Some(interval) = sim_config.capture_interval_secs {
+                cfg.capture_interval =
+                    bevy::prelude::Timer::from_seconds(interval, bevy::prelude::TimerMode::Repeating);
+            }
+            cfg
         })
         .insert_resource(RecorderState::default())
         .insert_resource(RecorderMotion::default())
         .insert_resource(vision::CaptureLimit {
-            max_frames: args.max_frames,
+            max_frames: sim_config.max_frames,
         })
         .insert_resource(AutoRecordTimer::default())
         .insert_resource(ControlParams {
@@ -136,84 +132,22 @@ pub fn run_app(args: crate::cli::AppArgs) {
         }))
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(ConditionalRapierDebug)
-        .configure_sets(Update, (ModeSet::Common, ModeSet::SimDatagen, ModeSet::Inference))
-        .add_systems(
-            Startup,
-            (
-                setup_camera,
-                setup_front_capture,
-                spawn_environment,
-                disable_gravity,
-                setup_tunnel,
-                spawn_probe,
-                spawn_balloon_body,
-                spawn_balloon_marker,
-                spawn_polyps,
-                spawn_controls_ui,
-                spawn_detection_overlay,
-            )
-                .chain(),
-        )
-        .add_observer(on_front_capture_readback)
-        .add_systems(
-            Update,
-            (
-                balloon_control_input,
-                balloon_body_update,
-                camera_controller,
-                pov_toggle_system,
-                track_front_camera_state,
-                capture_front_camera_frame.after(track_front_camera_state),
-                apply_detection_votes
-                    .after(polyp_detection_system)
-                    .after(poll_burn_inference),
-            )
-                .in_set(ModeSet::Common),
-        )
-        .add_systems(
-            Update,
-            (
-                datagen_autostart,
-                data_run_toggle,
-                auto_toggle,
-                auto_inchworm,
-                balloon_marker_update,
-                recorder_toggle_hotkey,
-                threshold_hotkeys,
-                auto_start_recording,
-                auto_stop_recording_on_cecum,
-                finalize_datagen_run.after(auto_stop_recording_on_cecum),
-                datagen_failsafe_recording,
-                record_front_camera_metadata.after(capture_front_camera_frame),
-                control_inputs_and_apply,
-                update_controls_ui,
-                cecum_detection,
-                start_detection,
-                tunnel_expansion_system,
-                polyp_detection_system,
-                polyp_removal_system
-                    .after(polyp_detection_system)
-                    .after(apply_detection_votes),
-            )
-                .in_set(ModeSet::SimDatagen),
-        )
-        .add_systems(
-            FixedUpdate,
-            (
-                peristaltic_drive,
-                distributed_thrust.before(PhysicsSet::SyncBackend),
-            ),
-        );
+        .add_plugins(SimPlugin)
+        .add_plugins(sim_core::runtime::SimRuntimePlugin)
+        .add_plugins(SimSystemsPlugin)
+        .add_plugins(AppBootstrapPlugin);
 
     if args.mode == RunMode::Inference {
-        app.add_systems(
+        app.insert_resource(BurnDetector::default())
+            .insert_resource(BurnInferenceState::default())
+            .insert_resource(InferenceThresholds {
+                obj_thresh: args.infer_obj_thresh,
+                iou_thresh: args.infer_iou_thresh,
+            });
+
+        app.add_plugins(InferencePlugin).add_systems(
             Update,
-            (
-                schedule_burn_inference.after(capture_front_camera_frame),
-                poll_burn_inference.after(schedule_burn_inference),
-                threshold_hotkeys,
-                hud::update_detection_overlay_ui.after(poll_burn_inference),
-            )
+            (hud::update_detection_overlay_ui.after(poll_burn_inference),)
                 .in_set(ModeSet::Inference),
         );
     }
@@ -235,6 +169,13 @@ fn spawn_environment(mut commands: Commands) {
 fn disable_gravity(mut configs: Query<&mut RapierConfiguration, With<DefaultRapierContext>>) {
     for mut config in &mut configs {
         config.gravity = Vec3::new(0.0, -0.5, 0.0);
+    }
+}
+
+struct AppBootstrapPlugin;
+impl Plugin for AppBootstrapPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, (spawn_environment, disable_gravity));
     }
 }
 

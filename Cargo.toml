@@ -3,6 +3,7 @@ members = [
     ".",
     "tools",
     "sim_core",
+    "vision_core",
 ]
 resolver = "2"
 
@@ -41,6 +42,7 @@ path = "src/bin/eval.rs"
 
 [dependencies]
 sim_core = { path = "sim_core" }
+vision_core = { path = "vision_core" }
 bevy = "0.17.3"
 bevy_rapier3d = { version = "0.32", features = [ "simd-stable", "debug-render-3d" ] }
 smallvec = "1.13"

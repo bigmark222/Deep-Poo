@@ -1,107 +1,30 @@
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use bevy::math::UVec2;
 use bevy::app::AppExit;
 use bevy::prelude::{
-    ButtonInput, Camera, GlobalTransform, KeyCode, MessageWriter, Query, Res, ResMut, Resource,
-    Time, Timer, TimerMode, Vec2, Vec3, With,
+    ButtonInput, Camera, GlobalTransform, KeyCode, MessageWriter, Query, Res, ResMut, Time, Vec2,
+    Vec3, With,
 };
 use image::{ColorType, ImageFormat, Rgba, RgbaImage};
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
 
+use sim_core::autopilot_types::{AutoDrive, DataRun, DatagenInit};
 use sim_core::camera::PovState;
+use sim_core::recorder_types::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
+
+use crate::balloon_control::BalloonControl;
 use crate::cli::RunMode;
-use crate::polyp::PolypSpawnMeta;
-use crate::polyp::PolypTelemetry;
+use crate::polyp::{Polyp, PolypSpawnMeta, PolypTelemetry};
 use crate::probe::ProbeHead;
-use crate::sim::autopilot::AutoDrive;
+use crate::tunnel::CecumState;
 use crate::vision::interfaces::{Frame, FrameRecord, Label, Recorder};
 use crate::vision::{
-    FrontCamera, FrontCameraFrameBuffer, FrontCameraState, FrontCaptureCamera,
+    CaptureLimit, FrontCamera, FrontCameraFrameBuffer, FrontCameraState, FrontCaptureCamera,
     FrontCaptureReadback, FrontCaptureTarget,
 };
-use crate::tunnel::CecumState;
-use crate::vision::CaptureLimit;
-use crate::BalloonControl;
 
-#[derive(Resource)]
-pub struct RecorderConfig {
-    pub output_root: PathBuf,
-    pub capture_interval: Timer,
-    pub resolution: UVec2,
-    pub prune_empty: bool,
-    pub prune_output_root: Option<PathBuf>,
-}
-
-impl Default for RecorderConfig {
-    fn default() -> Self {
-        Self {
-            output_root: PathBuf::from("assets/datasets/captures"),
-            capture_interval: Timer::from_seconds(0.33, TimerMode::Repeating),
-            resolution: UVec2::new(640, 360),
-            prune_empty: false,
-            prune_output_root: None,
-        }
-    }
-}
-
-#[derive(Resource)]
-pub struct RecorderState {
-    pub enabled: bool,
-    pub session_dir: PathBuf,
-    pub frame_idx: u64,
-    pub last_toggle: f64,
-    pub last_image_ok: bool,
-    pub paused: bool,
-    pub overlays_done: bool,
-    pub prune_done: bool,
-    pub initialized: bool,
-    pub manifest_written: bool,
-}
-
-impl Default for RecorderState {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            session_dir: PathBuf::from("assets/datasets/captures/unsynced"),
-            frame_idx: 0,
-            last_toggle: 0.0,
-            last_image_ok: false,
-            paused: false,
-            overlays_done: false,
-            prune_done: false,
-            initialized: false,
-            manifest_written: false,
-        }
-    }
-}
-
-#[derive(Resource)]
-pub struct AutoRecordTimer {
-    pub timer: Timer,
-}
-
-impl Default for AutoRecordTimer {
-    fn default() -> Self {
-        Self {
-            timer: Timer::from_seconds(30.0, TimerMode::Once),
-        }
-    }
-}
-
-#[derive(Resource, Default)]
-pub struct RecorderMotion {
-    pub last_head_z: Option<f32>,
-    pub cumulative_forward: f32,
-    pub started: bool,
-}
-
-// Temporary duplicated helpers to stage recorder migration; call sites still use the
-// originals in vision_core. These versions allow us to move system bodies later
-// without breaking the build while both copies coexist.
 const IMAGES_DIR: &str = "images";
 const LABELS_DIR: &str = "labels";
 const OVERLAYS_DIR: &str = "overlays";
@@ -135,15 +58,12 @@ struct SimCaptureMetadata {
     polyp_labels: Vec<SimPolypLabel>,
 }
 
-#[allow(dead_code)]
 pub(crate) fn recorder_init_run_dirs(
     state: &mut RecorderState,
     config: &RecorderConfig,
-    polyp_meta: &crate::polyp::PolypSpawnMeta,
+    polyp_meta: &PolypSpawnMeta,
     cap_limit: &CaptureLimit,
 ) {
-    // Reset per-run flags before creating a new session directory so overlays,
-    // manifests, and pruning run for every capture session.
     state.overlays_done = false;
     state.prune_done = false;
     state.manifest_written = false;
@@ -153,7 +73,7 @@ pub(crate) fn recorder_init_run_dirs(
         .map(|d| d.as_secs_f64())
         .unwrap_or(0.0);
     let started_ms = (started_unix * 1000.0).round() as u128;
-    let session = format!("run_{}", started_ms);
+    let session = format!("run_{started_ms}");
     state.session_dir = config.output_root.join(session);
     state.frame_idx = 0;
     let _ = fs::create_dir_all(&state.session_dir);
@@ -178,7 +98,6 @@ pub(crate) fn recorder_init_run_dirs(
     state.initialized = true;
 }
 
-#[allow(dead_code)]
 pub(crate) fn recorder_generate_overlays(run_dir: &Path) {
     let labels_dir = run_dir.join(LABELS_DIR);
     let out_dir = run_dir.join(OVERLAYS_DIR);
@@ -220,7 +139,6 @@ pub(crate) fn recorder_generate_overlays(run_dir: &Path) {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn recorder_prune_run(
     input_run: &Path,
     output_root: &Path,
@@ -233,7 +151,6 @@ pub(crate) fn recorder_prune_run(
     fs::create_dir_all(out_run.join(IMAGES_DIR))?;
     fs::create_dir_all(out_run.join(OVERLAYS_DIR))?;
 
-    // Copy manifest if present.
     let manifest_in = input_run.join("run_manifest.json");
     if manifest_in.exists() {
         let manifest_out = out_run.join("run_manifest.json");
@@ -261,17 +178,16 @@ pub(crate) fn recorder_prune_run(
             continue;
         }
         kept += 1;
-        // Copy label
         let out_label = out_run.join(LABELS_DIR).join(lbl.file_name());
         fs::write(&out_label, &raw)?;
-        // Copy image
+
         let in_img = input_run.join(&meta.image);
         let out_img = out_run.join(&meta.image);
         if let Some(parent) = out_img.parent() {
             fs::create_dir_all(parent)?;
         }
         let _ = fs::copy(&in_img, &out_img);
-        // Copy overlay if present
+
         if let Some(fname) = Path::new(&meta.image).file_name() {
             let overlay_in = input_run.join(OVERLAYS_DIR).join(fname);
             if overlay_in.exists() {
@@ -284,7 +200,6 @@ pub(crate) fn recorder_prune_run(
     Ok((kept, skipped))
 }
 
-#[allow(dead_code)]
 pub(crate) fn recorder_draw_rect(
     img: &mut RgbaImage,
     bbox: [f32; 4],
@@ -338,11 +253,6 @@ pub fn recorder_toggle_hotkey(
     if !keys.just_pressed(KeyCode::KeyL) {
         return;
     }
-    let _now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs_f64())
-        .unwrap_or(0.0);
-
     state.enabled = !state.enabled;
     state.last_toggle = time.elapsed_secs_f64();
     if state.enabled {
@@ -406,17 +316,14 @@ pub fn auto_start_recording(
 
 pub fn auto_stop_recording_on_cecum(
     cecum: Res<CecumState>,
-    mut data_run: ResMut<crate::sim::autopilot::DataRun>,
+    mut data_run: ResMut<DataRun>,
     mut auto: ResMut<AutoDrive>,
     mut state: ResMut<RecorderState>,
     mut auto_timer: ResMut<AutoRecordTimer>,
     mut motion: ResMut<RecorderMotion>,
     _run_mode: Option<Res<RunMode>>,
 ) {
-    if !state.enabled {
-        return;
-    }
-    if !data_run.active {
+    if !state.enabled || !data_run.active {
         return;
     }
     if cecum.reached {
@@ -432,7 +339,6 @@ pub fn auto_stop_recording_on_cecum(
         motion.started = false;
         data_run.active = false;
         auto.enabled = false;
-        // Let finalize_datagen_run handle overlays/pruning/exit in Datagen mode.
     }
 }
 
@@ -440,7 +346,7 @@ pub fn finalize_datagen_run(
     mode: Res<RunMode>,
     config: Res<RecorderConfig>,
     mut state: ResMut<RecorderState>,
-    mut data_run: ResMut<crate::sim::autopilot::DataRun>,
+    mut data_run: ResMut<DataRun>,
     mut exit: MessageWriter<AppExit>,
 ) {
     if *mode != RunMode::Datagen {
@@ -496,18 +402,15 @@ pub fn finalize_datagen_run(
 pub fn datagen_failsafe_recording(
     time: Res<Time>,
     mode: Res<RunMode>,
-    mut init: ResMut<crate::sim::autopilot::DatagenInit>,
+    mut init: ResMut<DatagenInit>,
     mut state: ResMut<RecorderState>,
     mut motion: ResMut<RecorderMotion>,
     config: Res<RecorderConfig>,
-    polyp_meta: Res<crate::polyp::PolypSpawnMeta>,
+    polyp_meta: Res<PolypSpawnMeta>,
     cap_limit: Res<CaptureLimit>,
     head_q: Query<&GlobalTransform, With<ProbeHead>>,
 ) {
-    if *mode != RunMode::Datagen {
-        return;
-    }
-    if !init.started || state.enabled {
+    if *mode != RunMode::Datagen || !init.started || state.enabled {
         return;
     }
     let Ok(head_tf) = head_q.single() else {
@@ -523,7 +426,6 @@ pub fn datagen_failsafe_recording(
     motion.last_head_z = Some(z);
 
     init.elapsed += time.delta_secs();
-    // Only start after forward motion begins; timer is just a guard against never starting.
     if motion.cumulative_forward < 0.25 {
         return;
     }
@@ -554,13 +456,12 @@ pub fn record_front_camera_metadata(
     readback: Res<FrontCaptureReadback>,
     spawn_meta: Res<PolypSpawnMeta>,
     polyp_telemetry: Res<PolypTelemetry>,
-    polyps: Query<&GlobalTransform, With<crate::polyp::Polyp>>,
+    polyps: Query<&GlobalTransform, With<Polyp>>,
     cap_limit: Res<CaptureLimit>,
 ) {
     if !state.enabled {
         return;
     }
-    // Pause capture while front balloon/vacuum is engaged or during polyp removal dwell.
     state.paused = balloon.head_inflated || removal.removing;
     if state.paused {
         return;
@@ -581,7 +482,6 @@ pub fn record_front_camera_metadata(
     let Some(frame) = buffer.latest.as_ref() else {
         return;
     };
-    // Prefer the capture camera (renders the PNGs) for projection to keep boxes aligned.
     let (cam, cam_tf, viewport) = if let Ok((cap_cam, cap_tf)) = capture_cams.single() {
         (
             cap_cam,
@@ -682,7 +582,6 @@ pub fn record_front_camera_metadata(
     if let Some(max) = cap_limit.max_frames {
         if state.frame_idx >= max as u64 {
             state.enabled = false;
-            // Keep data_run.active true so finalize_datagen_run can cleanly exit and write overlays.
         }
     }
 }
@@ -726,7 +625,7 @@ impl<'a> Recorder for DiskRecorder<'a> {
                 .duration_since(UNIX_EPOCH)
                 .map(|d| d.as_secs_f64())
                 .unwrap_or(0.0),
-            image: format!("{}/{}", IMAGES_DIR, image_name),
+            image: format!("{IMAGES_DIR}/{image_name}"),
             image_present,
             camera_active: record.camera_active,
             polyp_seed: record.polyp_seed,

@@ -4,9 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use colon_sim::common_cli::ThresholdOpts;
-use colon_sim::vision::{DefaultDetectorFactory, DetectorFactory};
-use colon_sim::vision::interfaces::Frame;
-use colon_sim::vision::overlay::{draw_rect, normalize_box};
+use colon_sim::vision::prelude::{DefaultDetectorFactory, DetectorFactory, Frame, draw_rect, normalize_box};
 
 #[derive(Parser, Debug)]
 #[command(
