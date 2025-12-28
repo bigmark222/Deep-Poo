@@ -7,7 +7,7 @@
 - [Data Capture](data_capture/README.md)
   - [Manual capture & controls](data_capture/manual_capture.md)
   - [Headless datagen](data_capture/datagen.md)
-  - [Offline overlays](data_capture/offline_overlays_training.md)
+  - [Single image inference](data_capture/single_infer.md)
 - [Ingestion / ETL](ingestion_etl/README.md)
   - [Data sources and capture/prune](ingestion_etl/data_sources.md)
   - [Schemas and validation rules](ingestion_etl/schemas_validation.md)
