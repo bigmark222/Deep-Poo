@@ -8,9 +8,8 @@ use crate::controls::ControlParams;
 use crate::polyp::PolypTelemetry;
 use crate::vision::overlay::normalize_box;
 use crate::probe::TipSense;
-use crate::vision::{
-    BurnInferenceState, DetectionOverlayState, DetectorHandle, FrontCameraState, RecorderState,
-};
+use crate::sim::recorder::RecorderState;
+use crate::vision::{BurnInferenceState, DetectionOverlayState, DetectorHandle, FrontCameraState};
 
 #[derive(Component)]
 pub struct ControlText;

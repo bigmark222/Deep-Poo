@@ -1,4 +1,3 @@
-pub mod autopilot;
 pub mod balloon_control;
 #[cfg(feature = "burn_runtime")]
 pub mod burn_model;
@@ -11,6 +10,7 @@ pub mod polyp;
 pub mod probe;
 pub mod seed;
 pub mod service;
+pub mod sim;
 pub mod tools;
 #[cfg(feature = "burn_runtime")]
 pub mod tools_postprocess {
@@ -24,7 +24,7 @@ use bevy_rapier3d::prelude::*;
 
 const RAPIER_DEBUG_WIREFRAMES: bool = true;
 
-use autopilot::{
+use sim::autopilot::{
     AutoDrive, DataRun, DatagenInit, auto_inchworm, auto_toggle, data_run_toggle, datagen_autostart,
 };
 use balloon_control::{
@@ -35,6 +35,11 @@ use camera::{PovState, camera_controller, pov_toggle_system, setup_camera};
 use controls::{ControlParams, control_inputs_and_apply};
 use crate::cli::RunMode;
 use hud::{spawn_controls_ui, spawn_detection_overlay, update_controls_ui};
+use sim::recorder::{
+    auto_start_recording, auto_stop_recording_on_cecum, datagen_failsafe_recording,
+    finalize_datagen_run, record_front_camera_metadata, recorder_toggle_hotkey, AutoRecordTimer,
+    RecorderConfig, RecorderMotion, RecorderState,
+};
 use polyp::{
     PolypDetectionVotes, PolypRandom, PolypRemoval, PolypSpawnMeta, PolypTelemetry,
     apply_detection_votes, polyp_detection_system, polyp_removal_system, spawn_polyps,
@@ -43,13 +48,10 @@ use probe::{StretchState, TipSense, distributed_thrust, peristaltic_drive, spawn
 use seed::{SeedState, resolve_seed};
 use tunnel::{CecumState, cecum_detection, setup_tunnel, start_detection, tunnel_expansion_system};
 use vision::{
-    AutoRecordTimer, BurnDetector, BurnInferenceState, DetectionOverlayState, DefaultDetectorFactory,
-    DetectorFactory, FrontCameraFrameBuffer, FrontCameraState, FrontCaptureReadback,
-    InferenceThresholds, RecorderConfig, RecorderMotion, RecorderState, auto_start_recording,
-    auto_stop_recording_on_cecum, capture_front_camera_frame, datagen_failsafe_recording,
-    finalize_datagen_run, on_front_capture_readback, poll_burn_inference,
-    record_front_camera_metadata, recorder_toggle_hotkey, schedule_burn_inference,
-    setup_front_capture, threshold_hotkeys, track_front_camera_state,
+    BurnDetector, BurnInferenceState, DetectionOverlayState, DefaultDetectorFactory, DetectorFactory,
+    FrontCameraFrameBuffer, FrontCameraState, FrontCaptureReadback, InferenceThresholds,
+    capture_front_camera_frame, on_front_capture_readback, poll_burn_inference,
+    schedule_burn_inference, setup_front_capture, threshold_hotkeys, track_front_camera_state,
 };
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]

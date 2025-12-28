@@ -5,7 +5,7 @@ use bevy_rapier3d::plugin::ReadRapierContext;
 use bevy_rapier3d::prelude::*;
 use std::f32::consts::FRAC_PI_2;
 
-use crate::autopilot::AutoDrive;
+use crate::sim::autopilot::AutoDrive;
 use crate::balloon_control::BalloonControl;
 use crate::camera::ProbePovCamera;
 use crate::controls::ControlParams;

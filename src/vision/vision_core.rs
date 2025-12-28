@@ -10,7 +10,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::autopilot::AutoDrive;
+use crate::sim::autopilot::AutoDrive;
+use crate::sim::recorder::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
 use crate::balloon_control::BalloonControl;
 use crate::camera::PovState;
 use crate::cli::RunMode;
@@ -340,82 +341,10 @@ impl interfaces::Detector for BurnTinyDetDetector {
     }
 }
 
-#[derive(Resource)]
-pub struct RecorderConfig {
-    pub output_root: PathBuf,
-    pub capture_interval: Timer,
-    pub resolution: UVec2,
-    pub prune_empty: bool,
-    pub prune_output_root: Option<PathBuf>,
-}
-
 const MAX_LABEL_DEPTH: f32 = 8.0;
 const IMAGES_DIR: &str = "images";
 const LABELS_DIR: &str = "labels";
 const OVERLAYS_DIR: &str = "overlays";
-
-impl Default for RecorderConfig {
-    fn default() -> Self {
-        Self {
-            output_root: PathBuf::from("assets/datasets/captures"),
-            capture_interval: Timer::from_seconds(0.33, TimerMode::Repeating),
-            resolution: UVec2::new(640, 360),
-            prune_empty: false,
-            prune_output_root: None,
-        }
-    }
-}
-
-#[derive(Resource)]
-pub struct RecorderState {
-    pub enabled: bool,
-    pub session_dir: PathBuf,
-    pub frame_idx: u64,
-    pub last_toggle: f64,
-    pub last_image_ok: bool,
-    pub paused: bool,
-    pub overlays_done: bool,
-    pub prune_done: bool,
-    pub initialized: bool,
-    pub manifest_written: bool,
-}
-
-impl Default for RecorderState {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            session_dir: PathBuf::from("assets/datasets/captures/unsynced"),
-            frame_idx: 0,
-            last_toggle: 0.0,
-            last_image_ok: false,
-            paused: false,
-            overlays_done: false,
-            prune_done: false,
-            initialized: false,
-            manifest_written: false,
-        }
-    }
-}
-
-#[derive(Resource)]
-pub struct AutoRecordTimer {
-    pub timer: Timer,
-}
-
-impl Default for AutoRecordTimer {
-    fn default() -> Self {
-        Self {
-            timer: Timer::from_seconds(30.0, TimerMode::Once),
-        }
-    }
-}
-
-#[derive(Resource, Default)]
-pub struct RecorderMotion {
-    pub last_head_z: Option<f32>,
-    pub cumulative_forward: f32,
-    pub started: bool,
-}
 
 #[derive(Resource, Default)]
 pub struct CaptureLimit {
@@ -761,7 +690,7 @@ pub fn auto_start_recording(
 
 pub fn auto_stop_recording_on_cecum(
     cecum: Res<CecumState>,
-    mut data_run: ResMut<crate::autopilot::DataRun>,
+    mut data_run: ResMut<crate::sim::autopilot::DataRun>,
     mut auto: ResMut<AutoDrive>,
     mut state: ResMut<RecorderState>,
     mut auto_timer: ResMut<AutoRecordTimer>,
@@ -1215,7 +1144,7 @@ pub fn finalize_datagen_run(
     mode: Res<RunMode>,
     config: Res<RecorderConfig>,
     mut state: ResMut<RecorderState>,
-    mut data_run: ResMut<crate::autopilot::DataRun>,
+    mut data_run: ResMut<crate::sim::autopilot::DataRun>,
     mut exit: MessageWriter<AppExit>,
 ) {
     if *mode != RunMode::Datagen {
@@ -1271,7 +1200,7 @@ pub fn finalize_datagen_run(
 pub fn datagen_failsafe_recording(
     time: Res<Time>,
     mode: Res<RunMode>,
-    mut init: ResMut<crate::autopilot::DatagenInit>,
+    mut init: ResMut<crate::sim::autopilot::DatagenInit>,
     mut state: ResMut<RecorderState>,
     mut motion: ResMut<RecorderMotion>,
     config: ResMut<RecorderConfig>,

@@ -7,7 +7,7 @@ use crate::polyp::PolypRemoval;
 use crate::probe::ProbeHead;
 use crate::probe::StretchState;
 use crate::tunnel::{CecumState, TUNNEL_LENGTH, TUNNEL_START_Z};
-use crate::vision::{AutoRecordTimer, RecorderState};
+use crate::sim::recorder::{AutoRecordTimer, RecorderState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AutoStage {
