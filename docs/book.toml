@@ -2,7 +2,7 @@
 title = "Deep Poo"
 authors = ["Via Balaena"]
 language = "en"
-src = "src"
+src = "book"
 
 [build]
-build-dir = "book"
+build-dir = "book_build"
