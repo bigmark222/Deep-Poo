@@ -17,7 +17,7 @@ use ratatui::{
 };
 use serde_json::json;
 
-use colon_sim::service;
+use tools::services;
 
 #[derive(Clone, Copy)]
 struct Theme {
@@ -48,7 +48,7 @@ impl Default for Theme {
 
 #[derive(Default)]
 struct AppState {
-    runs: Vec<service::RunInfo>,
+    runs: Vec<services::RunInfo>,
     status: String,
     selected: usize,
     logs: Vec<String>,
@@ -116,7 +116,7 @@ fn run_app() -> io::Result<()> {
 fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
     match code {
         KeyCode::Char('q') | KeyCode::Esc => return Ok(true),
-        KeyCode::Char('r') => match service::list_runs(Path::new("assets/datasets/captures")) {
+        KeyCode::Char('r') => match services::list_runs(Path::new("assets/datasets/captures")) {
             Ok(runs) => {
                 state.runs = runs;
                 state.status = "Refreshed runs".into();
@@ -125,7 +125,7 @@ fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
             Err(err) => state.status = format!("List runs failed: {err}"),
         },
         KeyCode::Char('d') => {
-            let opts = service::DatagenOptions {
+            let opts = services::DatagenOptions {
                 output_root: Path::new("assets/datasets/captures").to_path_buf(),
                 seed: None,
                 max_frames: None,
@@ -135,7 +135,7 @@ fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
                     Path::new("assets/datasets/captures_filtered").to_path_buf(),
                 ),
             };
-            match service::datagen_command(&opts).and_then(|cmd| service::spawn(&cmd)) {
+            match services::datagen_command(&opts).and_then(|cmd| services::spawn(&cmd)) {
                 Ok(child) => {
                     state.datagen_pid = Some(child.id());
                     state.status = format!(
@@ -148,7 +148,7 @@ fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
         }
         KeyCode::Char('t') => {
             let status_path = Path::new("logs/train_status.json").to_path_buf();
-            let opts = service::TrainOptions {
+            let opts = services::TrainOptions {
                 input_root: Path::new("assets/datasets/captures_filtered").to_path_buf(),
                 val_ratio: 0.2,
                 batch_size: 2,
@@ -158,7 +158,7 @@ fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
                 real_val_dir: None,
                 status_file: Some(status_path),
             };
-            match service::train_command(&opts).and_then(|cmd| service::spawn(&cmd)) {
+            match services::train_command(&opts).and_then(|cmd| services::spawn(&cmd)) {
                 Ok(child) => {
                     state.train_pid = Some(child.id());
                     state.status = format!("Started train (pid {})", child.id());
@@ -169,7 +169,7 @@ fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
             }
         }
         KeyCode::Char('m') => {
-            match service::read_metrics(Path::new("checkpoints/metrics.jsonl"), Some(1)) {
+            match services::read_metrics(Path::new("checkpoints/metrics.jsonl"), Some(1)) {
                 Ok(mut rows) if !rows.is_empty() => {
                     let last = rows.pop().unwrap();
                     state.status = format!("Last metric: {}", last);
@@ -179,7 +179,7 @@ fn handle_key(code: KeyCode, state: &mut AppState) -> io::Result<bool> {
                 Err(err) => state.status = format!("Read metrics failed: {err}"),
             }
         }
-        KeyCode::Char('l') => match service::read_log_tail(Path::new("logs/train.log"), 5) {
+        KeyCode::Char('l') => match services::read_log_tail(Path::new("logs/train.log"), 5) {
             Ok(lines) => {
                 state.logs = lines;
                 state.status = "Tailed logs (last 5 lines)".into();
@@ -205,7 +205,7 @@ fn tick(state: &mut AppState) {
     if state.status.is_empty() {
         state.status = "Press q to quit".into();
     }
-    if let Ok(mut rows) = service::read_metrics(Path::new("checkpoints/metrics.jsonl"), Some(1)) {
+    if let Ok(mut rows) = services::read_metrics(Path::new("checkpoints/metrics.jsonl"), Some(1)) {
         if let Some(last) = rows.pop() {
             let epoch = last.get("epoch").and_then(|v| v.as_u64()).unwrap_or(0);
             let val = last
@@ -217,7 +217,7 @@ fn tick(state: &mut AppState) {
             state.metrics = vec![format!("epoch {epoch}: {val}")];
         }
     }
-    if let Ok(lines) = service::read_log_tail(Path::new("logs/train.log"), 5) {
+    if let Ok(lines) = services::read_log_tail(Path::new("logs/train.log"), 5) {
         state.logs = lines;
     }
     if let Some(status) = read_train_status() {
@@ -228,7 +228,7 @@ fn tick(state: &mut AppState) {
 fn read_train_status() -> Option<serde_json::Value> {
     const PATHS: &[&str] = &["logs/train_hp_status.json", "logs/train_status.json"];
     for path in PATHS {
-        if let Some(status) = service::read_status(Path::new(path)) {
+        if let Some(status) = services::read_status(Path::new(path)) {
             return Some(status);
         }
     }

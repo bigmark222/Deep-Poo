@@ -6,7 +6,7 @@ use burn::lr_scheduler::linear::LinearLrSchedulerConfig;
 use burn::optim::adaptor::OptimizerAdaptor;
 use burn::optim::{AdamW, AdamWConfig, GradientsParams, Optimizer};
 use burn::tensor::backend::AutodiffBackend;
-use colon_sim::burn_model::{TinyDet, TinyDetConfig};
+use models::{TinyDet, TinyDetConfig};
 use colon_sim::tools::burn_dataset::{BatchIter, DatasetConfig, SampleIndex};
 use image::RgbImage;
 use std::fs;

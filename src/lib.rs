@@ -1,7 +1,6 @@
 pub mod cli;
 pub mod common_cli;
 pub mod seed;
-pub mod service;
 pub mod sim;
 pub mod tools;
 #[cfg(feature = "burn_runtime")]
@@ -10,9 +9,6 @@ pub mod tools_postprocess {
 }
 pub mod vision;
 pub use colon_sim_app::prelude::*;
-#[cfg(feature = "burn_runtime")]
-pub mod burn_model;
-
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 

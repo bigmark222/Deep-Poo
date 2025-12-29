@@ -4,7 +4,7 @@ use std::thread;
 use std::time::Duration;
 
 use clap::Parser;
-use colon_sim::service::{self, DatagenOptions};
+use tools::services::{self, DatagenOptions};
 #[cfg(target_os = "macos")]
 use serde::Deserialize;
 use sysinfo::System;
@@ -89,7 +89,7 @@ fn main() -> anyhow::Result<()> {
 
     while launched < args.count || !running.is_empty() {
         // Drop finished
-        running.retain(|r| service::is_process_running(r.pid));
+        running.retain(|r| services::is_process_running(r.pid));
 
         // Try to launch new runs if slots and resources allow
         while launched < args.count
@@ -112,7 +112,7 @@ fn main() -> anyhow::Result<()> {
                 prune_empty: true,
                 prune_output_root: prune_root.clone(),
             };
-            match service::datagen_command(&opts).and_then(|cmd| service::spawn(&cmd)) {
+            match services::datagen_command(&opts).and_then(|cmd| services::spawn(&cmd)) {
                 Ok(child) => {
                     println!(
                         "[{:>2}/{:>2}] launched pid={} output_root={} prune_root={}",
