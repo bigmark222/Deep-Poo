@@ -39,18 +39,6 @@ path = "apps/sim_view/main.rs"
 name = "inference_view"
 path = "apps/inference_view/main.rs"
 
-[[bin]]
-name = "gpu_macos_helper"
-path = "tools/src/bin/gpu_macos_helper.rs"
-
-[[bin]]
-name = "datagen"
-path = "tools/src/bin/datagen.rs"
-
-[[bin]]
-name = "single_infer"
-path = "tools/src/bin/single_infer.rs"
-
 [dependencies]
 sim_core = { path = "sim_core" }
 data_contracts = { path = "data_contracts" }

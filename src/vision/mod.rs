@@ -4,7 +4,7 @@ pub mod overlay;
 pub use vision_runtime::{
     BurnDetector, BurnDetectionResult, BurnInferenceState, CapturePlugin, DetectorHandle,
     DetectorKind, DetectionOverlayState, FrontCameraFrame, FrontCameraFrameBuffer,
-    FrontCameraState, InferencePlugin, InferenceThresholds, recorder_draw_rect,
+    FrontCameraState, InferencePlugin, InferenceThresholds, poll_inference_task, recorder_draw_rect,
     schedule_burn_inference, threshold_hotkeys,
 };
 pub use ::vision_core::prelude::{

@@ -28,3 +28,9 @@ cargo run -p colon_sim_tools --bin warehouse_export -- \
   --out logs/warehouse_summary.parquet
 ```
 5) Troubleshoot with the FAQ if anything looks off, then iterate.
+
+## Build your own sim on the platform
+- Root crate is orchestration/CLI only. Domain systems live in `apps/colon_sim` (reference app) or your own app crate.
+- Core crates: `sim_core` (Bevy plumbing), `vision_core`/`vision_runtime` (detector interfaces + capture/inference plugins), `inference` (Burn-backed detector factory), `models` (TinyDet/BigDet).
+- Tools: `colon_sim_tools` hosts CLIs (overlay/prune/warehouse/datagen/scheduler/tui, single_infer, gpu helper).
+- Recorder: runs in the substrate; installs a default JSON sink. Apps provide recorder world-state updates and can inject custom sinks.

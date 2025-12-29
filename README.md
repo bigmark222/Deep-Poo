@@ -70,7 +70,7 @@ To build a custom sim, create your own app crate that:
 3) Builds the app with `sim_core::build_app`/`SimPlugin`, and adds `vision_runtime`/`inference` plugins when you need capture + inference.
 
 Workspace map (orchestrator + crates)
-- Root crate: orchestration/CLI only (`cli.rs`, `common_cli.rs`, `seed.rs`, `run_app`); domain systems live outside.
+- Root crate: orchestration/CLI only (`cli.rs`, `common_cli.rs`, `seed.rs`, `run_app`); domain systems live in `apps/colon_sim` (or your app crate).
 - `apps/colon_sim`: reference app with world/entities, HUD, controls/autopilot hooks.
 - `sim_core`: Bevy plumbing (mode sets, camera/controls hooks, recorder/autopilot scaffolding).
 - `vision_core` / `vision_runtime`: detector interfaces and Bevy capture/inference plugins.

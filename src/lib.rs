@@ -1,7 +1,6 @@
 pub mod cli;
 pub mod common_cli;
 pub mod seed;
-pub mod sim;
 pub mod tools;
 #[cfg(feature = "burn_runtime")]
 pub mod tools_postprocess {
@@ -14,7 +13,6 @@ use bevy_rapier3d::prelude::*;
 
 const RAPIER_DEBUG_WIREFRAMES: bool = true;
 
-use sim::runtime::SimSystemsPlugin;
 use sim_core::camera::PovState;
 use sim_core::controls::ControlParams;
 use sim_core::recorder_types::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
@@ -143,7 +141,7 @@ pub fn run_app(args: crate::cli::AppArgs) {
         .add_plugins(ConditionalRapierDebug)
         .add_plugins(SimPlugin)
         .add_plugins(sim_core::runtime::SimRuntimePlugin)
-        .add_plugins(SimSystemsPlugin)
+        .add_plugins(AppSystemsPlugin)
         .add_plugins(AppBootstrapPlugin);
 
     if args.mode == RunMode::Inference {

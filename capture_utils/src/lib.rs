@@ -201,3 +201,56 @@ impl GetPixelChecked for image::RgbaImage {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vision_core::prelude::{Frame, FrameRecord};
+
+    #[test]
+    fn json_recorder_writes_label() {
+        let dir = tempfile::tempdir().unwrap();
+        let run_dir = dir.path();
+        let mut recorder = JsonRecorder::new(run_dir);
+        let frame = Frame {
+            id: 1,
+            timestamp: 0.5,
+            rgba: None,
+            size: (640, 480),
+            path: Some(PathBuf::from("images/frame_00001.png")),
+        };
+        let record = FrameRecord {
+            frame,
+            labels: &[],
+            camera_active: true,
+            polyp_seed: 42,
+        };
+        recorder.record(&record).expect("write label");
+        let label_path = run_dir.join("labels/frame_00001.json");
+        assert!(label_path.exists(), "label file should be written");
+    }
+
+    #[test]
+    fn prune_run_copies_manifest_and_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("run_123");
+        let labels = input.join("labels");
+        let images = input.join("images");
+        let overlays = input.join("overlays");
+        fs::create_dir_all(&labels).unwrap();
+        fs::create_dir_all(&images).unwrap();
+        fs::create_dir_all(&overlays).unwrap();
+        fs::write(input.join("run_manifest.json"), "{}").unwrap();
+        fs::write(labels.join("frame_00001.json"), "{}").unwrap();
+        fs::write(images.join("frame_00001.png"), []).unwrap();
+        fs::write(overlays.join("frame_00001.png"), []).unwrap();
+
+        let out_root = dir.path().join("out");
+        let (kept, _skipped) = prune_run(&input, &out_root).expect("prune run");
+        assert_eq!(kept, 1);
+        assert!(out_root.join("run_123/run_manifest.json").exists());
+        assert!(out_root.join("run_123/labels/frame_00001.json").exists());
+        assert!(out_root.join("run_123/images/frame_00001.png").exists());
+        assert!(out_root.join("run_123/overlays/frame_00001.png").exists());
+    }
+}

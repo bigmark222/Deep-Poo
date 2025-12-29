@@ -33,6 +33,7 @@ pub fn recorder_init_run_dirs(
     config: &RecorderConfig,
     meta: &RecorderMetaProvider,
     cap_limit: &CaptureLimit,
+    sink: &mut RecorderSink,
 ) {
     state.overlays_done = false;
     state.prune_done = false;
@@ -65,6 +66,11 @@ pub fn recorder_init_run_dirs(
             state.manifest_written = true;
         }
     }
+    if sink.writer.is_none() {
+        sink.writer = Some(Box::new(capture_utils::JsonRecorder {
+            run_dir: state.session_dir.clone(),
+        }));
+    }
     state.initialized = true;
 }
 
@@ -86,6 +92,7 @@ pub fn recorder_toggle_hotkey(
     mut state: ResMut<RecorderState>,
     meta: Res<RecorderMetaProvider>,
     cap_limit: Res<CaptureLimit>,
+    mut sink: ResMut<RecorderSink>,
 ) {
     if !keys.just_pressed(KeyCode::KeyL) {
         return;
@@ -94,7 +101,7 @@ pub fn recorder_toggle_hotkey(
     state.last_toggle = time.elapsed_secs_f64();
     if state.enabled {
         if !state.initialized {
-            recorder_init_run_dirs(&mut state, &config, &meta, &cap_limit);
+            recorder_init_run_dirs(&mut state, &config, &meta, &cap_limit, &mut sink);
         }
         state.paused = false;
         state.overlays_done = false;
@@ -114,6 +121,7 @@ pub fn auto_start_recording(
     meta: Res<RecorderMetaProvider>,
     world_state: Res<RecorderWorldState>,
     cap_limit: Res<CaptureLimit>,
+    mut sink: ResMut<RecorderSink>,
     _run_mode: Option<Res<SimRunMode>>,
 ) {
     if !auto.enabled || !pov.use_probe {
@@ -141,7 +149,7 @@ pub fn auto_start_recording(
     }
 
     if !state.initialized {
-        recorder_init_run_dirs(&mut state, &config, &meta, &cap_limit);
+        recorder_init_run_dirs(&mut state, &config, &meta, &cap_limit, &mut sink);
     }
     state.enabled = true;
     state.last_toggle = time.elapsed_secs_f64();
@@ -245,6 +253,7 @@ pub fn datagen_failsafe_recording(
     meta: Res<RecorderMetaProvider>,
     world_state: Res<RecorderWorldState>,
     cap_limit: Res<CaptureLimit>,
+    mut sink: ResMut<RecorderSink>,
 ) {
     if *mode != SimRunMode::Datagen || !init.started || state.enabled {
         return;
@@ -266,7 +275,7 @@ pub fn datagen_failsafe_recording(
     }
 
     if !state.initialized {
-        recorder_init_run_dirs(&mut state, &config, &meta, &cap_limit);
+        recorder_init_run_dirs(&mut state, &config, &meta, &cap_limit, &mut sink);
     }
     state.enabled = true;
     state.last_toggle = time.elapsed_secs_f64();

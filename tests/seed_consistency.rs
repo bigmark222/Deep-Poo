@@ -1,4 +1,4 @@
-use colon_sim::polyp::PolypRandom;
+use colon_sim_app::polyp::PolypRandom;
 use rand::Rng;
 
 #[test]

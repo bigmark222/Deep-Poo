@@ -27,9 +27,6 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // PathBuf import intentionally unused unless the env var is set.
-    use std::path::PathBuf;
-
     #[test]
     fn inference_factory_falls_back_without_weights() {
         let factory = InferenceFactory;
