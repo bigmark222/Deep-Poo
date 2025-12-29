@@ -1,6 +1,4 @@
 pub mod cli;
-pub mod common_cli;
-pub mod seed;
 pub mod tools;
 #[cfg(feature = "burn_runtime")]
 pub mod tools_postprocess {
@@ -22,7 +20,7 @@ use sim_core::recorder_meta::{
 };
 use sim_core::{ModeSet, SimConfig, SimPlugin, SimRunMode, build_app};
 use crate::cli::RunMode;
-use seed::{SeedState, resolve_seed};
+use crate::cli::seed::{SeedState, resolve_seed};
 use inference::prelude::{InferenceFactory, InferenceThresholds as InferenceFactoryThresholds};
 use vision::{
     BurnDetector, BurnInferenceState, DetectionOverlayState, DetectorHandle, DetectorKind,
@@ -33,15 +31,15 @@ use vision::{
 pub fn run_app(args: crate::cli::AppArgs) {
     let polyp_seed = resolve_seed(args.seed);
     let headless = args.headless;
-    let thresh_opts: common_cli::ThresholdOpts = (&args).into();
+    let thresh_opts: crate::cli::common::ThresholdOpts = (&args).into();
     let infer_thresh = thresh_opts.to_inference_thresholds();
     let factory_thresh = InferenceFactoryThresholds {
         obj_thresh: infer_thresh.obj_thresh,
         iou_thresh: infer_thresh.iou_thresh,
     };
-    let weights_opts: common_cli::WeightsOpts = (&args).into();
+    let weights_opts: crate::cli::common::WeightsOpts = (&args).into();
     let weights_path = weights_opts.detector_weights.as_deref();
-    let capture_opts: common_cli::CaptureOutputOpts = (&args).into();
+    let capture_opts: crate::cli::common::CaptureOutputOpts = (&args).into();
     let sim_mode = match args.mode {
         RunMode::Datagen => SimRunMode::Datagen,
         RunMode::Inference => SimRunMode::Inference,

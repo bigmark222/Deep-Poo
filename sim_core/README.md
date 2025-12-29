@@ -17,3 +17,6 @@ Adding systems
 - Sim/datagen-only: add to ModeSet::SimDatagen.
 - Inference-only: add to ModeSet::Inference.
 Use `SimRuntimePlugin` to keep registration in one place; avoid detector wiring here to keep the core crate lean. Recorder metadata/sink/world-state live here (`recorder_meta`); apps provide world-state updates and can inject custom sinks.
+
+Layout note
+- Root crate is orchestration/CLI only (`src/cli/*`, `run_app`); domain systems live in app crates (e.g., `apps/colon_sim`).
