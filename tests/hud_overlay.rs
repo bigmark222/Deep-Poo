@@ -1,9 +1,9 @@
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
-use colon_sim::hud::{
+use colon_sim_app::hud::{
     DetectionBoxUI, FallbackBanner, spawn_detection_overlay, update_detection_overlay_ui,
 };
-use colon_sim::vision::DetectionOverlayState;
+use vision_runtime::DetectionOverlayState;
 
 #[test]
 fn overlay_spawns_boxes_and_toggles_fallback_banner() {

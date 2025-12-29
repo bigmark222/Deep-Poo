@@ -1,13 +1,30 @@
 use bevy::prelude::*;
-
-use colon_sim_app::balloon_control::BalloonControl;
+use crate::balloon_control::BalloonControl;
 use sim_core::autopilot_types::{AutoDir, AutoDrive, AutoStage, DataRun, DatagenInit};
 use sim_core::camera::{Flycam, PovState, ProbePovCamera};
-use crate::cli::RunMode;
-use colon_sim_app::polyp::PolypRemoval;
-use colon_sim_app::probe::{ProbeHead, StretchState, MAX_STRETCH, MIN_STRETCH};
-use colon_sim_app::tunnel::{CecumState, StartState, TUNNEL_LENGTH, TUNNEL_START_Z};
-use sim_core::recorder_types::{AutoRecordTimer, RecorderState};
+use sim_core::prelude::{AutoRecordTimer, ModeSet, RecorderState};
+use sim_core::SimRunMode;
+use crate::polyp::PolypRemoval;
+use crate::probe::{ProbeHead, StretchState, MAX_STRETCH, MIN_STRETCH};
+use crate::tunnel::{CecumState, StartState, TUNNEL_LENGTH, TUNNEL_START_Z};
+
+/// Register colon-sim autopilot/data-run systems.
+pub struct AutopilotHookImpl;
+
+impl sim_core::prelude::AutopilotHook for AutopilotHookImpl {
+    fn register(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                datagen_autostart,
+                data_run_toggle,
+                auto_toggle,
+                auto_inchworm,
+            )
+                .in_set(ModeSet::SimDatagen),
+        );
+    }
+}
 
 pub fn auto_toggle(keys: Res<ButtonInput<KeyCode>>, mut auto: ResMut<AutoDrive>) {
     if keys.just_pressed(KeyCode::KeyP) {
@@ -71,7 +88,7 @@ pub fn data_run_toggle(
 }
 
 pub fn datagen_autostart(
-    mode: Res<RunMode>,
+    mode: Res<SimRunMode>,
     mut init: ResMut<DatagenInit>,
     mut auto: ResMut<AutoDrive>,
     mut data_run: ResMut<DataRun>,
@@ -79,7 +96,7 @@ pub fn datagen_autostart(
     mut free_cams: Query<&mut Camera, (With<Flycam>, Without<ProbePovCamera>)>,
     mut probe_cams: Query<&mut Camera, With<ProbePovCamera>>,
 ) {
-    if *mode != RunMode::Datagen || init.started {
+    if *mode != SimRunMode::Datagen || init.started {
         return;
     }
     init.started = true;

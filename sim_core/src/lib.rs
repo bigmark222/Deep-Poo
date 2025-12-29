@@ -63,7 +63,7 @@ pub mod prelude {
         setup_camera,
     };
     pub use crate::hooks::{AutopilotHook, ControlsHook, SimHooks};
-    pub use crate::controls::{ControlParams, control_inputs_and_apply};
+    pub use crate::controls::ControlParams;
     pub use crate::recorder_types::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
     pub use crate::probe_types::{ProbeSegment, SegmentSpring};
     pub use crate::runtime::{SimRuntimePlugin, register_runtime_systems};

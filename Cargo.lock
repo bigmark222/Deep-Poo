@@ -2556,6 +2556,7 @@ dependencies = [
  "sim_core",
  "smallvec",
  "vision_core",
+ "vision_runtime",
 ]
 
 [[package]]

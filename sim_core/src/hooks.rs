@@ -11,7 +11,7 @@ pub trait AutopilotHook: Send + Sync + 'static {
 }
 
 /// Optional hooks the app can provide; left empty by default.
-#[derive(Default)]
+#[derive(Default, bevy::prelude::Resource)]
 pub struct SimHooks {
     pub controls: Option<Box<dyn ControlsHook>>,
     pub autopilot: Option<Box<dyn AutopilotHook>>,

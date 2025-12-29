@@ -9,7 +9,6 @@ pub mod tools_postprocess {
     pub use crate::tools::postprocess::*;
 }
 pub mod vision;
-pub mod hud;
 pub use colon_sim_app::prelude::*;
 #[cfg(feature = "burn_runtime")]
 pub mod burn_model;
@@ -23,6 +22,7 @@ use sim::runtime::SimSystemsPlugin;
 use sim_core::camera::PovState;
 use sim_core::controls::ControlParams;
 use sim_core::recorder_types::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
+use sim_core::hooks::SimHooks;
 use sim_core::{ModeSet, SimConfig, SimPlugin, SimRunMode, build_app};
 use crate::cli::RunMode;
 use seed::{SeedState, resolve_seed};
@@ -76,6 +76,10 @@ pub fn run_app(args: crate::cli::AppArgs) {
     app
         .insert_resource(SeedState { value: polyp_seed })
         .insert_resource(args.mode)
+        .insert_resource(SimHooks {
+            controls: Some(Box::new(colon_sim_app::controls::ControlsHookImpl)),
+            autopilot: Some(Box::new(colon_sim_app::autopilot::AutopilotHookImpl)),
+        })
         .insert_resource(AmbientLight {
             color: Color::srgb(1.0, 1.0, 1.0),
             brightness: 0.4,
@@ -148,7 +152,7 @@ pub fn run_app(args: crate::cli::AppArgs) {
 
         app.add_plugins(InferencePlugin).add_systems(
             Update,
-            (hud::update_detection_overlay_ui.after(schedule_burn_inference),)
+            (colon_sim_app::hud::update_detection_overlay_ui.after(schedule_burn_inference),)
                 .in_set(ModeSet::Inference),
         );
     }

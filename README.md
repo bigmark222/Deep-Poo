@@ -57,6 +57,18 @@ cargo run --release
 ## Debug collider view
 - Set `RAPIER_DEBUG_WIREFRAMES` in `src/lib.rs` to `true` to show collider wireframes (orange), or `false` to hide them. Rebuild/run after changing.
 
+## Build your own sim on the core crates
+`colon_sim_app` is the reference domain implementation built on the shared crates:
+- `sim_core`: Bevy plumbing (mode sets, camera/controls hooks, autopilot/recorder scaffolding)
+- `vision_core`: detector traits, overlay helpers, capture/readback types
+- `vision_runtime`: Bevy capture/inference plugins on top of `vision_core`
+- `inference`: Burn-backed detector factory
+
+To build a custom sim, create your own app crate that:
+1) Defines domain systems (world/entities, controls/autopilot, HUD) and re-exports them via a prelude.  
+2) Registers those systems via `SimHooks` or your own plugins, keeping `sim_core` detector-free.  
+3) Builds the app with `sim_core::build_app`/`SimPlugin`, and adds `vision_runtime`/`inference` plugins when you need capture + inference.
+
 ## License
 This project is licensed under the GNU Affero General Public License v3.0. See `LICENSE` for full terms. For commercial licensing options, see `COMMERCIAL_LICENSE.md` (no patent license is granted under the default AGPL; commercial use that practices relevant patents requires a separate agreement).
 

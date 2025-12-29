@@ -7,10 +7,9 @@ use colon_sim_app::balloon_control::{
     balloon_body_update, balloon_control_input, balloon_marker_update, spawn_balloon_body,
     spawn_balloon_marker,
 };
-use crate::hud::{update_controls_ui, spawn_controls_ui, spawn_detection_overlay};
+use colon_sim_app::hud::{update_controls_ui, spawn_controls_ui, spawn_detection_overlay};
 use colon_sim_app::polyp::{apply_detection_votes, polyp_detection_system, polyp_removal_system, spawn_polyps};
 use colon_sim_app::probe::{distributed_thrust, peristaltic_drive, spawn_probe};
-use crate::sim::autopilot::{auto_inchworm, auto_toggle, data_run_toggle, datagen_autostart};
 use crate::sim::recorder::{
     auto_start_recording, auto_stop_recording_on_cecum, datagen_failsafe_recording,
     finalize_datagen_run, record_front_camera_metadata, recorder_toggle_hotkey,
@@ -20,7 +19,7 @@ use colon_sim_app::tunnel::{
 };
 use crate::vision::CapturePlugin;
 use sim_core::camera::{camera_controller, pov_toggle_system, setup_camera};
-use sim_core::controls::control_inputs_and_apply;
+use sim_core::hooks::SimHooks;
 
 /// Plugin that wires the existing autopilot/recorder and sim systems into ModeSet schedules.
 pub struct SimSystemsPlugin;
@@ -58,10 +57,6 @@ impl Plugin for SimSystemsPlugin {
             .add_systems(
                 Update,
                 (
-                    datagen_autostart,
-                    data_run_toggle,
-                    auto_toggle,
-                    auto_inchworm,
                     balloon_marker_update,
                     recorder_toggle_hotkey,
                     auto_start_recording,
@@ -69,7 +64,6 @@ impl Plugin for SimSystemsPlugin {
                     finalize_datagen_run.after(auto_stop_recording_on_cecum),
                     datagen_failsafe_recording,
                     record_front_camera_metadata,
-                    control_inputs_and_apply,
                     update_controls_ui,
                     cecum_detection,
                     start_detection,
@@ -87,5 +81,10 @@ impl Plugin for SimSystemsPlugin {
                 ),
             )
             .add_plugins(CapturePlugin);
+
+        if let Some(hooks) = app.world_mut().remove_resource::<SimHooks>() {
+            hooks.apply(app);
+            app.insert_resource(hooks);
+        }
     }
 }
