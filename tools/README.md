@@ -1,8 +1,20 @@
 # colon_sim_tools
 
-This crate hosts CLI utilities that are not part of the core runtime:
-- Data capture helpers: `overlay_labels`, `prune_empty`, `datagen_scheduler`.
-- Warehouse tooling: `warehouse_etl`, `warehouse_export`, `warehouse_cmd` (with shared builder/common under `src/warehouse_commands`).
-- Optional TUI: `tui` (if enabled).
+CLI utilities packaged in the `tools` crate:
 
-Run via `cargo run -p colon_sim_tools --bin <tool> -- ...`. See docs/book/reference/cli_api.md for flag details.
+- Core (always available): `overlay_labels`, `prune_empty`, `warehouse_etl`, `warehouse_export`, `warehouse_cmd`.
+- Feature-gated:
+  - `tui` (enable `--features tui`): requires `crossterm`/`ratatui`.
+  - `datagen_scheduler` (enable `--features scheduler`): requires `sysinfo`.
+
+Shared deps:
+- `data_contracts` for capture/manifest schemas.
+- `vision_core` for overlay helpers (used by `overlay_labels`).
+
+Usage examples:
+- `cargo run -p colon_sim_tools --bin prune_empty -- --input ... --output ...`
+- `cargo run -p colon_sim_tools --features tui --bin tui -- --help`
+- `cargo run -p colon_sim_tools --features scheduler --bin datagen_scheduler -- --help`
+
+Quick sanity check:
+- `cargo check -p colon_sim_tools --all-features`

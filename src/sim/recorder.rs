@@ -14,11 +14,11 @@ use sim_core::autopilot_types::{AutoDrive, DataRun, DatagenInit};
 use sim_core::camera::PovState;
 use sim_core::recorder_types::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
 
-use crate::balloon_control::BalloonControl;
+use colon_sim_app::balloon_control::BalloonControl;
 use crate::cli::RunMode;
-use crate::polyp::{Polyp, PolypSpawnMeta, PolypTelemetry};
-use crate::probe::ProbeHead;
-use crate::tunnel::CecumState;
+use colon_sim_app::polyp::{Polyp, PolypSpawnMeta, PolypTelemetry};
+use colon_sim_app::probe::ProbeHead;
+use colon_sim_app::tunnel::CecumState;
 use crate::vision::interfaces::{Frame, FrameRecord, Label, Recorder};
 use crate::vision::{
     CaptureLimit, FrontCamera, FrontCameraFrameBuffer, FrontCameraState, FrontCaptureCamera,

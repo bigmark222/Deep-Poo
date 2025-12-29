@@ -1,0 +1,17 @@
+[package]
+name = "colon_sim_app"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bevy = "0.17.3"
+bevy_mesh = "0.17.3"
+bevy_rapier3d = { version = "0.32", features = ["simd-stable", "debug-render-3d"] }
+sim_core = { path = "../../sim_core" }
+vision_core = { path = "../../vision_core" }
+data_contracts = { path = "../../data_contracts" }
+models = { path = "../../models" }
+anyhow = "1.0"
+rand = "0.8"
+smallvec = "1.13"

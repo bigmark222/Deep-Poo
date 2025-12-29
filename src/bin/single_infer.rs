@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use colon_sim::common_cli::ThresholdOpts;
-use colon_sim::vision::prelude::{DefaultDetectorFactory, DetectorFactory, Frame, draw_rect, normalize_box};
+use colon_sim::vision::prelude::{Frame, draw_rect, normalize_box};
+use inference::prelude::{InferenceFactory, InferenceThresholds};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -49,9 +50,12 @@ fn main() -> anyhow::Result<()> {
     let rgba = img.as_raw().clone();
 
     let thresh_opts = ThresholdOpts::new(args.infer_obj_thresh, args.infer_iou_thresh);
-    let thresh = thresh_opts.to_inference_thresholds();
-    let factory = DefaultDetectorFactory;
-    let mut handle = factory.build(thresh, None);
+    let thresh = InferenceThresholds {
+        obj_thresh: thresh_opts.obj_thresh,
+        iou_thresh: thresh_opts.iou_thresh,
+    };
+    let factory = InferenceFactory;
+    let mut detector = factory.build(thresh, None);
 
     let ts = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -65,7 +69,7 @@ fn main() -> anyhow::Result<()> {
         path: Some(in_path.clone()),
     };
 
-    let result = handle.detector.detect(&frame);
+    let result = detector.detect(&frame);
     let mut boxed = img.clone();
     if result.boxes.is_empty() {
         eprintln!("no detections (confidence {})", result.confidence);

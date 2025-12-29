@@ -1,0 +1,14 @@
+[package]
+name = "vision_runtime"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bevy = "0.17.3"
+bevy_camera = "0.17.3"
+sim_core = { path = "../sim_core" }
+vision_core = { path = "../vision_core" }
+anyhow = "1.0"
+image = { version = "0.24", default-features = false, features = ["png"] }
+futures-lite = "2.3"

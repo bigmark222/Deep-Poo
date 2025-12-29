@@ -5,9 +5,9 @@ use bevy::ui::{
 };
 
 use sim_core::controls::ControlParams;
-use crate::polyp::PolypTelemetry;
+use colon_sim_app::polyp::PolypTelemetry;
 use crate::vision::overlay::normalize_box;
-use crate::probe::TipSense;
+use colon_sim_app::probe::TipSense;
 use sim_core::recorder_types::RecorderState;
 use crate::vision::{BurnInferenceState, DetectionOverlayState, DetectorHandle, FrontCameraState};
 

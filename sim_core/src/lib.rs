@@ -62,6 +62,7 @@ pub mod prelude {
         Flycam, PovState, ProbePovCamera, UiOverlayCamera, camera_controller, pov_toggle_system,
         setup_camera,
     };
+    pub use crate::hooks::{AutopilotHook, ControlsHook, SimHooks};
     pub use crate::controls::{ControlParams, control_inputs_and_apply};
     pub use crate::recorder_types::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
     pub use crate::probe_types::{ProbeSegment, SegmentSpring};
@@ -84,3 +85,4 @@ pub mod autopilot_types;
 pub mod probe_types;
 pub mod recorder_types;
 pub mod runtime;
+pub mod hooks;

@@ -23,6 +23,13 @@ https://github.com/user-attachments/assets/cbf42edf-c61e-476c-b1e8-549b5f5b7580
 - `O` data recording run: enables autopilot + probe POV, auto-starts recording after a short delay, and auto-stops when reaching the tunnel end (no recording on the return leg)
 
 
+## Binaries
+- `sim_view` (apps/sim_view): interactive sim
+- `inference_view` (apps/inference_view): inference mode
+- `datagen_headless` (src/bin/datagen.rs): headless capture
+- Training bins live under `training/` (train/eval)
+- CLI tools are in the `tools/` crate (overlay_labels, prune_empty, warehouse_*; feature-gated: tui, datagen_scheduler)
+
 ## Running
 ```bash
 cargo run --release

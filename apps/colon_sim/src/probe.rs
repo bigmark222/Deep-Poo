@@ -12,7 +12,7 @@ use sim_core::controls::ControlParams;
 use sim_core::probe_types::ProbeSegment;
 use crate::polyp::{PolypRemoval, PolypTelemetry};
 use crate::tunnel::{advance_centerline, tunnel_centerline, tunnel_tangent_rotation};
-use crate::vision::{FrontCamera, FrontCaptureCamera, FrontCaptureTarget};
+use vision_core::capture::{FrontCamera, FrontCaptureCamera, FrontCaptureTarget};
 
 pub const MIN_STRETCH: f32 = 1.0;
 // Allow stretching up to +68% of the deflated length.

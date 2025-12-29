@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use serde::Deserialize;
+use data_contracts::capture::CaptureMetadata;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -17,21 +17,6 @@ struct Args {
     /// Output root where filtered runs will be written.
     #[arg(long, default_value = "assets/datasets/captures_filtered")]
     output: PathBuf,
-}
-
-#[derive(Deserialize)]
-struct LabelEntry {
-    image_present: bool,
-    image: String,
-    polyp_labels: Vec<PolypLabel>,
-}
-
-#[derive(Deserialize)]
-struct PolypLabel {
-    #[allow(dead_code)]
-    bbox_px: Option<[f32; 4]>,
-    #[allow(dead_code)]
-    bbox_norm: Option<[f32; 4]>,
 }
 
 fn main() -> Result<()> {
@@ -81,7 +66,7 @@ fn main() -> Result<()> {
             }
             let raw =
                 fs::read(lbl.path()).with_context(|| format!("read {}", lbl.path().display()))?;
-            let meta: LabelEntry = serde_json::from_slice(&raw)
+            let meta: CaptureMetadata = serde_json::from_slice(&raw)
                 .with_context(|| format!("parse {}", lbl.path().display()))?;
             if !meta.image_present || meta.polyp_labels.is_empty() {
                 frames_skipped += 1;

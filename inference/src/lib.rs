@@ -23,3 +23,24 @@ pub mod prelude {
     pub use crate::plugin::{InferencePlugin, InferenceState};
     pub use crate::{InferenceBackend, InferenceModel, InferenceModelConfig};
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // PathBuf import intentionally unused unless the env var is set.
+    use std::path::PathBuf;
+
+    #[test]
+    fn inference_factory_falls_back_without_weights() {
+        let factory = InferenceFactory;
+        let mut detector = factory.build(InferenceThresholds::default(), None);
+        // Should not panic and should produce a detector.
+        assert!(detector.detect(&vision_core::interfaces::Frame {
+            id: 0,
+            timestamp: 0.0,
+            rgba: None,
+            size: (1, 1),
+            path: None,
+        }).frame_id == 0);
+    }
+}

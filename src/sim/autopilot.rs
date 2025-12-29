@@ -1,13 +1,12 @@
 use bevy::prelude::*;
 
-use crate::balloon_control::BalloonControl;
+use colon_sim_app::balloon_control::BalloonControl;
 use sim_core::autopilot_types::{AutoDir, AutoDrive, AutoStage, DataRun, DatagenInit};
 use sim_core::camera::{Flycam, PovState, ProbePovCamera};
 use crate::cli::RunMode;
-use crate::polyp::PolypRemoval;
-use crate::probe::ProbeHead;
-use crate::probe::StretchState;
-use crate::tunnel::{CecumState, TUNNEL_LENGTH, TUNNEL_START_Z};
+use colon_sim_app::polyp::PolypRemoval;
+use colon_sim_app::probe::{ProbeHead, StretchState, MAX_STRETCH, MIN_STRETCH};
+use colon_sim_app::tunnel::{CecumState, StartState, TUNNEL_LENGTH, TUNNEL_START_Z};
 use sim_core::recorder_types::{AutoRecordTimer, RecorderState};
 
 pub fn auto_toggle(keys: Res<ButtonInput<KeyCode>>, mut auto: ResMut<AutoDrive>) {
@@ -114,7 +113,7 @@ pub fn auto_inchworm(
     stretch: Res<StretchState>,
     head_q: Query<&GlobalTransform, With<ProbeHead>>,
     mut cecum: ResMut<CecumState>,
-    mut start: ResMut<crate::tunnel::StartState>,
+    mut start: ResMut<StartState>,
 ) {
     // If autopilot off, do nothing.
     if !auto.enabled {
@@ -218,7 +217,7 @@ pub fn auto_inchworm(
             balloon.tail_inflated = true;
             balloon.head_inflated = false;
             auto.extend = true;
-            if stretch.factor >= crate::probe::MAX_STRETCH - 0.02 {
+            if stretch.factor >= MAX_STRETCH - 0.02 {
                 auto.stage = AutoStage::AnchorHead;
                 auto.timer = 0.0;
             }
@@ -243,7 +242,7 @@ pub fn auto_inchworm(
             balloon.tail_inflated = false;
             balloon.head_inflated = true;
             auto.retract = true;
-            if stretch.factor <= crate::probe::MIN_STRETCH + 0.02 {
+            if stretch.factor <= MIN_STRETCH + 0.02 {
                 auto.stage = AutoStage::ReleaseHead;
                 auto.timer = 0.0;
             }
@@ -269,7 +268,7 @@ pub fn auto_inchworm(
             balloon.tail_inflated = false;
             balloon.head_inflated = true;
             auto.extend = true;
-            if stretch.factor >= crate::probe::MAX_STRETCH - 0.02 {
+            if stretch.factor >= MAX_STRETCH - 0.02 {
                 auto.stage = AutoStage::AnchorTail;
                 auto.timer = 0.0;
             }
@@ -294,7 +293,7 @@ pub fn auto_inchworm(
             balloon.tail_inflated = true;
             balloon.head_inflated = false;
             auto.retract = true;
-            if stretch.factor <= crate::probe::MIN_STRETCH + 0.02 {
+            if stretch.factor <= MIN_STRETCH + 0.02 {
                 auto.stage = AutoStage::ReleaseTail;
                 auto.timer = 0.0;
             }

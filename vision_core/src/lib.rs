@@ -7,5 +7,7 @@ pub mod capture;
 pub mod prelude {
     pub use crate::interfaces::*;
     pub use crate::overlay::*;
-    pub use crate::capture::CaptureLimit;
+    pub use crate::capture::{
+        CaptureLimit, FrontCamera, FrontCaptureCamera, FrontCaptureReadback, FrontCaptureTarget,
+    };
 }

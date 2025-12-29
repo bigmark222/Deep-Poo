@@ -1,11 +1,5 @@
-pub mod balloon_control;
-#[cfg(feature = "burn_runtime")]
-pub mod burn_model;
 pub mod cli;
 pub mod common_cli;
-pub mod hud;
-pub mod polyp;
-pub mod probe;
 pub mod seed;
 pub mod service;
 pub mod sim;
@@ -14,8 +8,11 @@ pub mod tools;
 pub mod tools_postprocess {
     pub use crate::tools::postprocess::*;
 }
-pub mod tunnel;
 pub mod vision;
+pub mod hud;
+pub use colon_sim_app::prelude::*;
+#[cfg(feature = "burn_runtime")]
+pub mod burn_model;
 
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -23,23 +20,17 @@ use bevy_rapier3d::prelude::*;
 const RAPIER_DEBUG_WIREFRAMES: bool = true;
 
 use sim::runtime::SimSystemsPlugin;
-use balloon_control::BalloonControl;
 use sim_core::camera::PovState;
 use sim_core::controls::ControlParams;
 use sim_core::recorder_types::{AutoRecordTimer, RecorderConfig, RecorderMotion, RecorderState};
 use sim_core::{ModeSet, SimConfig, SimPlugin, SimRunMode, build_app};
 use crate::cli::RunMode;
-use polyp::{
-    PolypDetectionVotes, PolypRandom, PolypRemoval, PolypSpawnMeta, PolypTelemetry,
-};
-use probe::{StretchState, TipSense};
 use seed::{SeedState, resolve_seed};
-use tunnel::CecumState;
 use inference::prelude::{InferenceFactory, InferenceThresholds as InferenceFactoryThresholds};
 use vision::{
     BurnDetector, BurnInferenceState, DetectionOverlayState, DetectorHandle, DetectorKind,
     FrontCameraFrameBuffer, FrontCameraState, FrontCaptureReadback, InferenceThresholds,
-    poll_burn_inference, InferencePlugin,
+    InferencePlugin, schedule_burn_inference,
 };
 
 pub fn run_app(args: crate::cli::AppArgs) {
@@ -157,7 +148,7 @@ pub fn run_app(args: crate::cli::AppArgs) {
 
         app.add_plugins(InferencePlugin).add_systems(
             Update,
-            (hud::update_detection_overlay_ui.after(poll_burn_inference),)
+            (hud::update_detection_overlay_ui.after(schedule_burn_inference),)
                 .in_set(ModeSet::Inference),
         );
     }

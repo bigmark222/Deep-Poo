@@ -4,10 +4,12 @@ members = [
     "tools",
     "sim_core",
     "vision_core",
+    "vision_runtime",
     "data_contracts",
     "training",
     "inference",
     "models",
+    "apps/colon_sim",
 ]
 resolver = "2"
 
@@ -30,17 +32,23 @@ gpu_intel = []
 
 [[bin]]
 name = "sim_view"
-path = "src/main.rs"
+path = "apps/sim_view/main.rs"
 
 [[bin]]
 name = "datagen_headless"
 path = "src/bin/datagen.rs"
 
+[[bin]]
+name = "inference_view"
+path = "apps/inference_view/main.rs"
+
 [dependencies]
 sim_core = { path = "sim_core" }
 data_contracts = { path = "data_contracts" }
 vision_core = { path = "vision_core" }
+vision_runtime = { path = "vision_runtime" }
 inference = { path = "inference" }
+colon_sim_app = { path = "apps/colon_sim" }
 bevy = "0.17.3"
 bevy_rapier3d = { version = "0.32", features = [ "simd-stable", "debug-render-3d" ] }
 smallvec = "1.13"

@@ -2516,6 +2516,7 @@ dependencies = [
  "burn-ndarray",
  "burn-wgpu",
  "clap",
+ "colon_sim_app",
  "crossbeam-channel",
  "crossterm",
  "data_contracts",
@@ -2537,6 +2538,23 @@ dependencies = [
  "sysinfo 0.30.13",
  "tempfile",
  "thiserror 1.0.69",
+ "vision_core",
+ "vision_runtime",
+]
+
+[[package]]
+name = "colon_sim_app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "bevy_mesh",
+ "bevy_rapier3d",
+ "data_contracts",
+ "models",
+ "rand 0.8.5",
+ "sim_core",
+ "smallvec",
  "vision_core",
 ]
 
@@ -8185,6 +8203,19 @@ dependencies = [
  "bevy",
  "image 0.24.9",
  "serde",
+]
+
+[[package]]
+name = "vision_runtime"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "bevy_camera",
+ "futures-lite",
+ "image 0.24.9",
+ "sim_core",
+ "vision_core",
 ]
 
 [[package]]
