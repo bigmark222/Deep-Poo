@@ -8,6 +8,8 @@ For developers working on the data/training pipeline: setup, standards (fmt/clip
 - Core: `sim_core` (Bevy plumbing), `vision_core`/`vision_runtime` (detector interfaces + capture/inference plugins), `models` (TinyDet/BigDet).
 - Training/Inference: `training` (loop/CLI), `inference` (Burn-backed detector factory).
 - Tools: `colon_sim_tools` (overlay/prune/warehouse/datagen/scheduler/tui) plus shared helpers.
+- Build your own sim: add an app crate that registers domain systems/hooks; keep the root crate as glue only.
+ - Bins: run specific bins (`sim_view`, `inference_view`, tools bins) via `cargo run --bin ...`; `main` is just a thin wrapper over `run_app`.
 
 ## Recorder defaults & hooks
 - Recorder runs in the substrate (`src/sim/recorder.rs`) and installs a default `JsonRecorder` sink (from `capture_utils`) when a run starts. You can inject your own sink via `RecorderSink.writer`.

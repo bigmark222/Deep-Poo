@@ -12,3 +12,4 @@ Usage
 1) Add `vision_core` as a dependency.
 2) Import via `vision_core::prelude::*` for interfaces/overlay helpers.
 3) Implement `Detector`/`DetectorFactory` in your crate; keep heavy backends (Burn) behind feature flags outside vision_core.
+4) Use `BurnDetectorFactory` only if you need a feature-gated Burn loader; keep the trait implementations out of vision_core to stay lean.

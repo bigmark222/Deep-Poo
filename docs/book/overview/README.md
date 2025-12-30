@@ -34,3 +34,4 @@ cargo run -p colon_sim_tools --bin warehouse_export -- \
 - Core crates: `sim_core` (Bevy plumbing), `vision_core`/`vision_runtime` (detector interfaces + capture/inference plugins), `inference` (Burn-backed detector factory), `models` (TinyDet/BigDet).
 - Tools: `colon_sim_tools` hosts CLIs (overlay/prune/warehouse/datagen/scheduler/tui, single_infer, gpu helper).
 - Recorder: runs in the substrate; installs a default JSON sink. Apps provide recorder world-state updates and can inject custom sinks.
+- App hook points: provide controls/autopilot via `SimHooks`; recorder metadata/world-state via `RecorderMetaProvider`/`RecorderWorldState`; add domain systems in your app crate (see `apps/colon_sim` as a reference).
