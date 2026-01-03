@@ -2244,7 +2244,7 @@ dependencies = [
  "burn",
  "burn-ndarray",
  "crossbeam-channel",
- "data_contracts",
+ "data_contracts 0.1.0",
  "image 0.24.9",
  "memmap2",
  "rand 0.8.5",
@@ -2372,12 +2372,12 @@ name = "capture_utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "data_contracts",
+ "data_contracts 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.24.9",
  "serde",
  "serde_json",
  "tempfile",
- "vision_core 0.1.0",
+ "vision_core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2561,7 +2561,7 @@ dependencies = [
  "colon_sim_app",
  "crossbeam-channel",
  "crossterm",
- "data_contracts",
+ "data_contracts 0.1.0",
  "futures-lite",
  "image 0.24.9",
  "inference",
@@ -2593,7 +2593,7 @@ dependencies = [
  "bevy",
  "bevy_mesh",
  "bevy_rapier3d",
- "data_contracts",
+ "data_contracts 0.1.0",
  "models",
  "rand 0.8.5",
  "sim_core",
@@ -2615,7 +2615,7 @@ dependencies = [
  "clap",
  "cli_support",
  "crossterm",
- "data_contracts",
+ "data_contracts 0.1.0",
  "image 0.24.9",
  "inference",
  "nvml-wrapper 0.8.0",
@@ -2899,7 +2899,7 @@ dependencies = [
  "burn_dataset",
  "capture_utils",
  "cli_support",
- "data_contracts",
+ "data_contracts 0.1.0",
  "inference",
  "models",
  "sim_core",
@@ -3308,6 +3308,17 @@ checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 [[package]]
 name = "data_contracts"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "data_contracts"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e98a49563c5efb1c7eccdd1cac9345c167d62a6f512aab13c718602f229956f2"
 dependencies = [
  "serde",
  "serde_json",
@@ -8017,7 +8028,7 @@ dependencies = [
  "burn-ndarray",
  "burn-wgpu",
  "clap",
- "data_contracts",
+ "data_contracts 0.1.0",
  "image 0.24.9",
  "models",
  "serde",
