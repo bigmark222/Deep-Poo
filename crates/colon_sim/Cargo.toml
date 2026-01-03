@@ -32,7 +32,7 @@ vision_runtime = { package = "cortenforge-vision-runtime", path = "../../vision_
 inference = { package = "cortenforge-inference", path = "../../inference" }
 capture_utils = { package = "cortenforge-capture-utils", path = "../../capture_utils" }
 colon_sim_app = { path = "../../apps/colon_sim" }
-burn_dataset = { package = "cortenforge-burn-dataset", path = "../burn_dataset", version = "0.1.0", default-features = false, features = ["sha2"] }
+burn_dataset = { package = "cortenforge-burn-dataset", path = "../burn_dataset", version = "0.1.0", default-features = false }
 bevy = "0.17.3"
 bevy_rapier3d = { version = "0.32", features = ["simd-stable", "debug-render-3d"] }
 smallvec = "1.13"

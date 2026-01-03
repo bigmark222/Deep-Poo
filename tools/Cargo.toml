@@ -18,7 +18,7 @@ path = "src/lib.rs"
 
 [dependencies]
 cli_support = { package = "cortenforge-cli-support", path = "../crates/cli_support" }
-burn_dataset = { package = "cortenforge-burn-dataset", path = "../crates/burn_dataset", version = "0.1.0", default-features = false, features = ["sha2"] }
+burn_dataset = { package = "cortenforge-burn-dataset", path = "../crates/burn_dataset", version = "0.1.0", default-features = false }
 vision_core = { package = "cortenforge-vision-core", path = "../vision_core" }
 data_contracts = { package = "cortenforge-data-contracts", path = "../data_contracts" }
 inference = { package = "cortenforge-inference", path = "../inference" }
