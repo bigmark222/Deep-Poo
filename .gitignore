@@ -13,3 +13,9 @@ media/
 ml_pipeline.md
 todo.md
 todo/
+# Smoke test/output captures
+captures*/
+captures_*/
+assets/datasets/captures*/
+*_filtered/
+*.tmp/

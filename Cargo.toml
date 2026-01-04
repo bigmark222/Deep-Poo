@@ -1,6 +1,84 @@
-[workspace]
-members = [
-    "crates/colon_sim",
-    "apps/colon_sim",
-]
+[package]
+name = "colon_sim"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
 resolver = "2"
+
+[features]
+burn_runtime = ["burn", "burn/ndarray", "burn/autodiff", "burn-ndarray", "burn_dataset/burn_runtime"]
+burn_wgpu = ["burn", "burn/autodiff", "burn-wgpu"]
+burn_runtime_wgpu = ["burn_runtime", "burn_wgpu"]
+tui = ["ratatui", "crossterm", "sysinfo"]
+scheduler = ["sysinfo"]
+gpu_macos_helper = []
+gpu_nvidia = ["nvml-wrapper"]
+gpu_amd = []
+gpu_intel = []
+
+[[bin]]
+name = "sim_view"
+path = "src/bin/sim_view.rs"
+
+[[bin]]
+name = "inference_view"
+path = "src/bin/inference_view.rs"
+
+[[bin]]
+name = "datagen_headless"
+path = "src/bin/datagen_headless.rs"
+
+[dependencies]
+sim_core = { package = "cortenforge-sim-core", version = "0.1.0" }
+data_contracts = { package = "cortenforge-data-contracts", version = "0.1.0" }
+vision_core = { package = "cortenforge-vision-core", version = "0.1.0" }
+vision_runtime = { package = "cortenforge-vision-runtime", version = "0.1.0" }
+inference = { package = "cortenforge-inference", version = "0.1.0" }
+capture_utils = { package = "cortenforge-capture-utils", version = "0.1.0" }
+burn_dataset = { package = "cortenforge-burn-dataset", version = "0.1.0", default-features = false }
+bevy = "0.17.3"
+bevy_rapier3d = { version = "0.32", features = ["simd-stable", "debug-render-3d"] }
+smallvec = "1.13"
+bevy_mesh = "0.17.3"
+futures-lite = "2.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+image = { version = "0.24", default-features = false, features = ["png", "rayon"] }
+rand = "0.8"
+clap = { version = "4.5", features = ["derive", "env"] }
+burn = { version = "0.14", optional = true }
+anyhow = "1.0"
+burn-ndarray = { version = "0.14", optional = true }
+burn-wgpu = { version = "0.14", optional = true, default-features = true }
+ratatui = { version = "0.26", optional = true, default-features = false, features = ["crossterm"] }
+crossterm = { version = "0.27", optional = true }
+sysinfo = { version = "0.30", optional = true, default-features = true, features = ["multithread"] }
+thiserror = "1.0"
+nvml-wrapper = { version = "0.8", optional = true }
+rayon = "1.8"
+sha2 = "0.10"
+arrow-array = "46"
+arrow-schema = "46"
+arrow-select = "46"
+parquet = { version = "46", features = ["arrow"] }
+memmap2 = "0.9"
+crossbeam-channel = "0.5"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+metal = "0.29"
+
+[dev-dependencies]
+tempfile = "3.10"
+models = { package = "cortenforge-models", version = "0.1.0" }
+
+# Optional: uncomment to develop against local cortenforge crates
+# [patch.crates-io]
+# cortenforge-sim-core = { path = "../cortenforge-sim-core" }
+# cortenforge-vision-core = { path = "../cortenforge-vision-core" }
+# cortenforge-vision-runtime = { path = "../cortenforge-vision-runtime" }
+# cortenforge-data-contracts = { path = "../cortenforge-data-contracts" }
+# cortenforge-inference = { path = "../cortenforge-inference" }
+# cortenforge-capture-utils = { path = "../cortenforge-capture-utils" }
+# cortenforge-models = { path = "../cortenforge-models" }
+# cortenforge-burn-dataset = { path = "../cortenforge-burn-dataset" }
